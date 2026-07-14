@@ -1,0 +1,55 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  interval: 1h
+  releaseName: kube-prometheus-stack
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      # Pinned (issue 14, same governed-dependency posture as Kyverno,
+      # ADR-0003): the observability stack is bumped via the same reviewed
+      # Renovate PR path as everything else.
+      version: "87.16.0"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: monitoring
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    # Alertmanager isn't used here -- notification/alert (issue 16) is Flux's
+    # own notification-controller broadcasting revision changes, a different
+    # mechanism for a different signal (GitOps reconcile events, not metric
+    # alert rules). Disabled to keep the KiND footprint lean, not because
+    # it's the wrong tool for issue 16.
+    alertmanager:
+      enabled: false
+    prometheus:
+      prometheusSpec:
+        retention: 6h
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+        # No PersistentVolume: this is ephemeral demo infra (PRD "Proof =
+        # KiND, free & reproducible") -- KiND's local-path-provisioner would
+        # work fine if this ever needs to survive a Prometheus restart, but
+        # nothing here depends on retained history across ./down.sh.
+        storageSpec: {}
+    grafana:
+      # Sidecar dashboard auto-discovery (default-on in this chart) is what
+      # lets Policy Reporter's own pre-built dashboards (ConfigMaps labelled
+      # grafana_dashboard: "1") show up with zero hand-authored Grafana JSON
+      # -- see policy-reporter-helmrelease.yaml.
+      resources:
+        requests: {cpu: 50m, memory: 128Mi}
+      adminPassword: admin
+    kubeControllerManager: {enabled: false}
+    kubeEtcd: {enabled: false}
+    kubeScheduler: {enabled: false}
+    kubeProxy: {enabled: false}
