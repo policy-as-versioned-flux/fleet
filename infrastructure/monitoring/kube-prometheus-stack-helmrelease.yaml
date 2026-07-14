@@ -53,3 +53,81 @@ spec:
     kubeEtcd: {enabled: false}
     kubeScheduler: {enabled: false}
     kubeProxy: {enabled: false}
+    # Issue 15 / ADR-0008: Flux doesn't export its own resource state as
+    # Prometheus metrics -- this is the flux2-monitoring-example pattern
+    # (github.com/fluxcd/flux2-monitoring-example) for kube-state-metrics's
+    # customResourceState feature, trimmed to the three Flux kinds this repo
+    # actually uses (GitRepository, Kustomization, HelmRelease) rather than
+    # the upstream example's full 12-kind coverage (Bucket/HelmChart/
+    # notification+image-automation types this project has none of). No
+    # `--custom-resource-state-only` flag: kube-state-metrics keeps emitting
+    # its normal built-in metrics (pods/deployments/etc, feeding the stock
+    # kube-prometheus-stack dashboards) alongside these.
+    kube-state-metrics:
+      rbac:
+        extraRules:
+          - apiGroups: [source.toolkit.fluxcd.io, kustomize.toolkit.fluxcd.io, helm.toolkit.fluxcd.io]
+            resources: [gitrepositories, kustomizations, helmreleases]
+            verbs: [list, watch]
+      customResourceState:
+        enabled: true
+        config:
+          spec:
+            resources:
+              - groupVersionKind:
+                  group: source.toolkit.fluxcd.io
+                  version: v1
+                  kind: GitRepository
+                metricNamePrefix: gotk
+                metrics:
+                  - name: resource_info
+                    help: "The current state of a Flux GitRepository resource."
+                    each:
+                      type: Info
+                      info:
+                        labelsFromPath:
+                          name: [metadata, name]
+                    labelsFromPath:
+                      exported_namespace: [metadata, namespace]
+                      ready: [status, conditions, "[type=Ready]", status]
+                      suspended: [spec, suspend]
+                      revision: [status, artifact, revision]
+                      url: [spec, url]
+              - groupVersionKind:
+                  group: kustomize.toolkit.fluxcd.io
+                  version: v1
+                  kind: Kustomization
+                metricNamePrefix: gotk
+                metrics:
+                  - name: resource_info
+                    help: "The current state of a Flux Kustomization resource."
+                    each:
+                      type: Info
+                      info:
+                        labelsFromPath:
+                          name: [metadata, name]
+                    labelsFromPath:
+                      exported_namespace: [metadata, namespace]
+                      ready: [status, conditions, "[type=Ready]", status]
+                      suspended: [spec, suspend]
+                      revision: [status, lastAppliedRevision]
+                      source_name: [spec, sourceRef, name]
+              - groupVersionKind:
+                  group: helm.toolkit.fluxcd.io
+                  version: v2
+                  kind: HelmRelease
+                metricNamePrefix: gotk
+                metrics:
+                  - name: resource_info
+                    help: "The current state of a Flux HelmRelease resource."
+                    each:
+                      type: Info
+                      info:
+                        labelsFromPath:
+                          name: [metadata, name]
+                    labelsFromPath:
+                      exported_namespace: [metadata, namespace]
+                      ready: [status, conditions, "[type=Ready]", status]
+                      suspended: [spec, suspend]
+                      revision: [status, history, "0", chartVersion]
+                      chart_name: [status, history, "0", chartName]

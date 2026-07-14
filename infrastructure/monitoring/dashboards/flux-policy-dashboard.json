@@ -1,0 +1,89 @@
+{
+  "title": "Flux Revision + PolicyReports (which version, where, passing?)",
+  "uid": "flux-policy-version",
+  "tags": ["policy-as-versioned-flux"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "type": "custom",
+        "label": "cluster",
+        "query": "cluster1",
+        "current": {"text": "cluster1", "value": "cluster1"},
+        "options": [{"text": "cluster1", "value": "cluster1", "selected": true}],
+        "description": "One Prometheus per cluster today (issue 15) -- a real cross-cluster query (Thanos/federation, or a per-cluster Grafana datasource this variable picks between) is issue 10's design question once cluster2 exists, not answered here."
+      },
+      {
+        "name": "policy_version",
+        "type": "query",
+        "label": "policy-version",
+        "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+        "query": {
+          "query": "label_values(gotk_resource_info{customresource_kind=\"GitRepository\", name=~\"policy-.*\"}, name)",
+          "refId": "PolicyVersionVariable"
+        },
+        "regex": "/^policy-(?<text>.*)$/",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": false,
+        "current": {"text": "All", "value": "$__all"}
+      },
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "label": "Prometheus",
+        "query": "prometheus",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Which version, where? (Flux GitRepository + Kustomization revisions)",
+      "type": "table",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {
+          "expr": "gotk_resource_info{customresource_kind=~\"GitRepository|Kustomization\", name=~\".*$policy_version.*\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "customresource_kind": true,
+              "name": true,
+              "revision": true,
+              "ready": true,
+              "source_name": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Is it actually passing? (PolicyReport results for $policy_version)",
+      "type": "barchart",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 9},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {
+          "expr": "sum by (status) (policy_report_result{policy=~\".*$policy_version\"})",
+          "legendFormat": "{{status}}",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

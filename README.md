@@ -30,7 +30,12 @@ flux-instance.yaml            FluxInstance -- pinned Flux 2.9.2, upstream-alpine
 infrastructure/kyverno/       Kyverno engine: Namespace + HelmRepository + HelmRelease
 infrastructure/monitoring/    issue 14: kube-prometheus-stack + Policy Reporter (both pinned) --
                                 PolicyReport results as Prometheus metrics, Policy Reporter's own
-                                pre-built Grafana dashboards auto-discovered by the sidecar
+                                pre-built Grafana dashboards auto-discovered by the sidecar.
+                                Issue 15: kube-state-metrics customResourceState config (the
+                                flux2-monitoring-example pattern, trimmed to the 3 Flux kinds
+                                this repo uses) exposing gotk_resource_info; a combined
+                                Flux-revision + PolicyReports dashboard, same ConfigMap +
+                                sidecar mechanism, sharing one cluster+policy-version variable
 clusters/cluster1/
   bootstrap.yaml               self-referential GitRepository+Kustomization: this repo
                                 syncs itself, so infrastructure/kyverno/ becomes a real
@@ -60,6 +65,9 @@ verify-renovate.sh             proves issue 11: the customManager correctly targ
 verify-monitoring.sh           proves issue 14: PolicyReport metrics for every installed
                                 version reach Prometheus; a non-compliant Audit workload
                                 shows failing there without being evicted
+verify-flux-dashboard.sh       proves issue 15: gotk_resource_info covers every installed
+                                version; selecting a version resolves both "where is it
+                                installed" and "is it passing" panel queries
 ```
 
 ## Run it
@@ -71,13 +79,19 @@ verify-monitoring.sh           proves issue 14: PolicyReport metrics for every i
 ./verify-orphan-guard.sh # orphan guard claims against what's live
 ./verify-renovate.sh     # Renovate customManager against a fixture -- no cluster needed
 ./verify-monitoring.sh   # PolicyReport -> Prometheus claims against what's live
+./verify-flux-dashboard.sh  # Flux-revision + PolicyReports dashboard claims against what's live
 ./down.sh                # tear down; ./up.sh again recreates cleanly
 ```
 
 Grafana (`kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80`,
 `admin`/`admin`) ships three Policy Reporter dashboards out of the box: "PolicyReports"
 (cluster-wide, filterable by the `policy` variable -- which carries the version suffix),
-"PolicyReport Details", "ClusterPolicyReport Details".
+"PolicyReport Details", "ClusterPolicyReport Details" -- plus issue 15's own "Flux Revision +
+PolicyReports" dashboard, sharing one `cluster`+`policy-version` variable across a "which
+version, where" panel (`gotk_resource_info`) and an "is it passing" panel
+(`policy_report_result`). `cluster` is a single fixed value today (one Prometheus per cluster) --
+real cross-cluster querying (Thanos, federation, or a per-cluster datasource this variable picks
+between) is issue 10's design question once `cluster2` exists, not answered here.
 
 Prereqs: docker, kind, kubectl, helm, flux, jq. Readiness is gated by native
 `kubectl wait --for=condition=Ready` throughout, never a jsonpath polling
