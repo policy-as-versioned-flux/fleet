@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "automerge": false,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "One update surface for every {tag, commit} pin to the policy repo (ADR-0002 §6.2): the fleet's nested {version, tag, commit} array (policy-versions.yaml) is the only pin surface in this design -- consumer apps opt in via a mycompany.com/policy-version label only, they carry no git ref of their own to bump (see issue 11's comments for why). Renovate's native flux manager can't maintain a {tag, commit} pair -- it tracks one or the other, exclusively -- so this customManager (git-refs datasource) does. Matches `tag:`/`commit:` adjacent lines, not `version:` -- `version` only diverges from `tag` for a CI-only-fix patch release (rare), and a human reviewing the PR (never automerged) adjusts it by hand in that case.",
+      "managerFilePatterns": ["/^clusters/.*\\.yaml$/"],
+      "matchStrings": [
+        "tag: [\"']?(?<currentValue>[0-9.]+)[\"']?\\s*\\n\\s*commit: [\"']?(?<currentDigest>[a-f0-9]{40})[\"']?"
+      ],
+      "datasourceTemplate": "git-refs",
+      "depNameTemplate": "https://github.com/policy-as-versioned-flux/policy",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "No live semver ranges anywhere (ADR-0002): every match from the customManager above is pinned exact, range strategy is never in play, but pin this down explicitly as a guardrail.",
+      "matchDatasources": ["git-refs"],
+      "rangeStrategy": "pin"
+    }
+  ]
+}

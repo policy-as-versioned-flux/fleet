@@ -39,6 +39,9 @@ clusters/cluster1/
                                 Adding/removing an array element is the only change needed
                                 to install/retire a version.
   apps.yaml                     the apps repo (app1/2/3, one per version), branch-tracked
+renovate.json                   issue 11: one customManager (git-refs datasource) bumps every
+                                {tag, commit} pin to the policy repo -- the only pin surface in
+                                this design, see the file's own description field for why
 up.sh / down.sh                one command sequence, idempotent, clean teardown+recreate
 verify-live.sh                 proves the admission verdicts: compliant admits, gate
                                 violation refused, lane-keeper violation admits+reported,
@@ -48,6 +51,9 @@ verify-coexistence.sh          proves issue 08: three versions live side by side
 verify-orphan-guard.sh         proves issue 09: no label denied, unknown version denied,
                                 allow-list tracks the installed set, pre-existing orphans
                                 reported not evicted
+verify-renovate.sh             proves issue 11: the customManager correctly targets each
+                                element of the real multi-version array independently (a
+                                fixture, not the live cluster -- no kubectl/KiND needed)
 ```
 
 ## Run it
@@ -57,6 +63,7 @@ verify-orphan-guard.sh         proves issue 09: no label denied, unknown version
 ./verify-live.sh         # admission verdicts against what's live
 ./verify-coexistence.sh  # multi-version coexistence claims against what's live
 ./verify-orphan-guard.sh # orphan guard claims against what's live
+./verify-renovate.sh     # Renovate customManager against a fixture -- no cluster needed
 ./down.sh                # tear down; ./up.sh again recreates cleanly
 ```
 
