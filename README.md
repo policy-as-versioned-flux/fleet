@@ -54,6 +54,13 @@ verify-orphan-guard.sh         proves issue 09: no label denied, unknown version
 verify-renovate.sh             proves issue 11: the customManager correctly targets each
                                 element of the real multi-version array independently (a
                                 fixture, not the live cluster -- no kubectl/KiND needed)
+pr-gate-check.sh                issue 12: gitsign verify-tag + tag-resolves-to-commit +
+                                kyverno test + flux build --dry-run for every array entry in
+                                a bump PR. Runs identically in CI
+                                (.github/workflows/pr-gate.yml, on PRs touching clusters/**,
+                                required by a branch ruleset before merge) and locally
+                                (./pr-gate-check.sh <base-ref> <head-ref>) -- no real PR needed
+                                to exercise it, only the {tag, commit} pairs it reads
 ```
 
 ## Run it
@@ -64,6 +71,7 @@ verify-renovate.sh             proves issue 11: the customManager correctly targ
 ./verify-coexistence.sh  # multi-version coexistence claims against what's live
 ./verify-orphan-guard.sh # orphan guard claims against what's live
 ./verify-renovate.sh     # Renovate customManager against a fixture -- no cluster needed
+./pr-gate-check.sh HEAD~1 HEAD  # PR gate against any two refs -- no cluster, no real PR needed
 ./down.sh                # tear down; ./up.sh again recreates cleanly
 ```
 
