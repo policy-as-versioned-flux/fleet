@@ -1,0 +1,57 @@
+name: pr-gate
+
+# Issue 12: makes a Renovate bump PR trustworthy before merge (PRD §5).
+# Runs pr-gate-check.sh (the same script usable locally) with the PR's
+# base/head refs -- see that script for what it actually checks.
+
+on:
+  pull_request:
+    paths:
+      - "clusters/**"
+
+permissions:
+  contents: read
+
+env:
+  GITSIGN_VERSION: 0.16.1
+  GITSIGN_SHA256: 4a29a1f4b9add1f0f6d9a3e9e6ba0cffa121b971be82d62bb1496d7d1d877b0a
+  KYVERNO_VERSION: 1.18.2
+  KYVERNO_SHA256: cb2feb8356149fd2fe774c894ccf0969f4a60a83867dd913af724f74ffbbc18b
+  KUSTOMIZE_VERSION: 5.8.1
+  KUSTOMIZE_SHA256: 029a7f0f4e1932c52a0476cf02a0fd855c0bb85694b82c338fc648dcb53a819d
+  FLUX_VERSION: 2.9.2
+  FLUX_SHA256: 4092b367fd060097976fb7261601f79420ecf7266328417dfd8dfee27de0e6a3
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pinned gitsign, kyverno, kustomize, flux, jq, yq (binary + checksum, no marketplace actions)
+        run: |
+          set -euo pipefail
+          curl -sSL -o gitsign "https://github.com/sigstore/gitsign/releases/download/v${GITSIGN_VERSION}/gitsign_${GITSIGN_VERSION}_linux_amd64"
+          echo "${GITSIGN_SHA256}  gitsign" | sha256sum -c -
+          chmod +x gitsign && sudo mv gitsign /usr/local/bin/gitsign
+
+          curl -sSL -o kyverno.tar.gz "https://github.com/kyverno/kyverno/releases/download/v${KYVERNO_VERSION}/kyverno-cli_v${KYVERNO_VERSION}_linux_x86_64.tar.gz"
+          echo "${KYVERNO_SHA256}  kyverno.tar.gz" | sha256sum -c -
+          tar xzf kyverno.tar.gz kyverno && chmod +x kyverno && sudo mv kyverno /usr/local/bin/kyverno
+
+          curl -sSL -o kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          echo "${KUSTOMIZE_SHA256}  kustomize.tar.gz" | sha256sum -c -
+          tar xzf kustomize.tar.gz kustomize && chmod +x kustomize && sudo mv kustomize /usr/local/bin/kustomize
+
+          curl -sSL -o flux.tar.gz "https://github.com/fluxcd/flux2/releases/download/v${FLUX_VERSION}/flux_${FLUX_VERSION}_linux_amd64.tar.gz"
+          echo "${FLUX_SHA256}  flux.tar.gz" | sha256sum -c -
+          tar xzf flux.tar.gz flux && chmod +x flux && sudo mv flux /usr/local/bin/flux
+
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq
+          sudo curl -sSL -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: pr-gate-check.sh (base -> head)
+        run: ./pr-gate-check.sh "origin/${{ github.base_ref }}" "${{ github.event.pull_request.head.sha }}"
