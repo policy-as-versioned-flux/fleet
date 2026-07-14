@@ -1,0 +1,33 @@
+# Consumer apps. Not itself the versioned dependency (that's the policy
+# sources above) -- ordinary continuous GitOps sync, branch-tracked. dependsOn
+# the policy Kustomizations only so the demo is deterministic (a workload
+# lands after its judge already exists), not because a workload requires
+# policy to exist first in general.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: apps
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  url: https://github.com/policy-as-versioned-flux/apps
+  ref:
+    branch: main
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: apps
+  path: ./app1
+  prune: true
+  wait: true
+  timeout: 2m0s
+  dependsOn:
+    - name: policy-v1-0-0-require-department-label
+    - name: policy-v1-0-0-require-known-department-label

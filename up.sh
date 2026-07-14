@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # One documented command sequence: laptop -> KiND cluster with Flux Operator
-# (FluxInstance, ADR-0005) + Kyverno engine (>=1.18, ADR-0003) healthy (issue
-# 05). Idempotent -- safe to re-run. Readiness is gated throughout by native
-# `kubectl wait` on Ready conditions, never a jsonpath polling loop. CEL
-# `healthCheckExprs` (the other half of "wait + CEL health checks") is a Flux
-# Kustomization field -- nothing here goes through one yet, since there's no
-# GitOps source to sync from until issue 06 wires in the real policy repo.
+# (FluxInstance, ADR-0005), Kyverno engine (>=1.18, ADR-0003), policy v1.0.0,
+# and one consumer app, all reconciling live via Flux GitOps (issue 06).
+# Idempotent -- safe to re-run. Readiness is gated throughout by native
+# `kubectl wait` on Ready conditions, never a jsonpath polling loop.
 #
 # Prereqs: docker, kind, kubectl, helm. ~3-5 min from cold (varies with image pull speed).
 set -euo pipefail
@@ -23,10 +21,21 @@ echo "== 3. FluxInstance (pinned Flux 2.9.2, upstream-alpine) =="
 kubectl apply -f flux-instance.yaml >/dev/null
 kubectl -n flux-system wait --for=condition=Ready fluxinstance/flux --timeout=5m
 
-echo "== 4. Kyverno engine via a pinned HelmRelease =="
-kubectl apply -f infrastructure/kyverno/namespace.yaml >/dev/null
-kubectl apply -f infrastructure/kyverno/ >/dev/null
-kubectl -n kyverno wait --for=condition=Ready helmrelease/kyverno --timeout=5m
+echo "== 4. Self-referential bootstrap: Flux syncs this repo, installing Kyverno from git =="
+kubectl apply -f clusters/cluster1/bootstrap.yaml >/dev/null
+kubectl -n flux-system wait --for=condition=Ready gitrepository/fleet --timeout=2m
+kubectl -n flux-system wait --for=condition=Ready kustomization/kyverno --timeout=5m
 
-echo "== OK: KiND cluster '$CLUSTER' has Flux Operator + Kyverno healthy =="
+echo "== 5. Policy v1.0.0 + one consumer app, from their own pinned/tracked sources =="
+kubectl apply -f clusters/cluster1/policy-v1.0.0.yaml >/dev/null
+kubectl apply -f clusters/cluster1/apps.yaml >/dev/null
+kubectl -n flux-system wait --for=condition=Ready \
+  kustomization/policy-v1-0-0-require-department-label \
+  kustomization/policy-v1-0-0-require-known-department-label \
+  --timeout=3m
+kubectl -n flux-system wait --for=condition=Ready kustomization/apps --timeout=2m
+
+echo "== OK: KiND cluster '$CLUSTER' has Flux Operator + Kyverno + policy v1.0.0 + app1 healthy =="
 kubectl -n kyverno get deploy
+kubectl get validatingpolicy
+kubectl get pod app1 --show-labels

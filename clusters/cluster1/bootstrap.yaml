@@ -1,0 +1,29 @@
+# Self-referential bootstrap: this cluster's Flux syncs the fleet repo it
+# is itself defined in, so the Kyverno engine install (previously a one-shot
+# `kubectl apply` in up.sh -- there was nothing to sync from yet) becomes a
+# real Kustomization other Kustomizations can dependsOn (PRD §6.4 point 6).
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: fleet
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  url: https://github.com/policy-as-versioned-flux/fleet
+  ref:
+    branch: main
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kyverno
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./infrastructure/kyverno
+  prune: true
+  wait: true
+  timeout: 3m0s
