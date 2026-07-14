@@ -38,6 +38,15 @@ spec:
   timeout: 3m0s
   dependsOn:
     - name: kyverno
+  # ValidatingPolicy has no standard `.status.conditions[type=Ready]` (see
+  # pavf-policy/verify-live.sh) -- kstatus's generic heuristic can't read
+  # its actual readiness field, so wait:true alone risks reporting Ready as
+  # soon as SSA apply succeeds, before Kyverno's webhook is really serving
+  # it. "wait + CEL health checks" (CONTEXT.md) closes that race.
+  healthCheckExprs:
+    - apiVersion: policies.kyverno.io/v1
+      kind: ValidatingPolicy
+      current: status.conditionStatus.ready == true
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -55,3 +64,12 @@ spec:
   timeout: 3m0s
   dependsOn:
     - name: kyverno
+  # ValidatingPolicy has no standard `.status.conditions[type=Ready]` (see
+  # pavf-policy/verify-live.sh) -- kstatus's generic heuristic can't read
+  # its actual readiness field, so wait:true alone risks reporting Ready as
+  # soon as SSA apply succeeds, before Kyverno's webhook is really serving
+  # it. "wait + CEL health checks" (CONTEXT.md) closes that race.
+  healthCheckExprs:
+    - apiVersion: policies.kyverno.io/v1
+      kind: ValidatingPolicy
+      current: status.conditionStatus.ready == true
