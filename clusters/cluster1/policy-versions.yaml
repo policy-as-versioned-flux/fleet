@@ -1,0 +1,100 @@
+# The crux (PRD §6.4, ADR-0005): one ResourceSet input carrying one nested
+# {version, tag, commit, policies} array. Adding/removing an element is the
+# only change needed to install/retire a version -- everything else
+# (GitRepository + per-policy Kustomizations, all collision-free via
+# nameSuffix) renders from it.
+#
+# `version` (the policy-version workloads must label with -- what's actually
+# baked into that release's kustomize nameSuffix/objectSelector) and `tag`
+# (the git ref to fetch) are separate fields, not one string, because two of
+# these three releases are CI-only-fix patches (v1.0.1 fixes the release
+# workflow itself, v2.0.1 fixes a signing-config regression) that correctly
+# left the policy content -- and so its internal version literal -- exactly
+# as it was (v1.0.1's content still declares itself "1.0.0"; CONTEXT.md: a
+# release with zero verdict impact is unversioned-in-substance even if it
+# needed a new tag to ship a working CI run). v2.1.1 is a real content
+# release, so its tag and version happen to be the same string. Consumers
+# must label with `version`, not `tag` -- "one semver string, three
+# authors" is about the *policy* version string, and diverges from the git
+# tag exactly when a release changes nothing a workload's admission verdict
+# could observe.
+#
+# Each element also carries its own `policies` list rather than pointing
+# one Kustomization at an aggregating `workloads/kyverno/` path: the policy
+# repo has no such aggregating kustomization.yaml (issue 06), and each
+# already-tagged version has a *different* policy set (1.0.0/2.0.0 ship 2
+# policies, 2.1.1 ships 3) -- ranging over versions alone can't discover
+# that without either retrofitting immutable tags or hardcoding a
+# lowest-common-denominator list. A future release that adds the
+# aggregating kustomization.yaml could drop this inner list.
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
+metadata:
+  name: policy-versions
+  namespace: flux-system
+spec:
+  dependsOn:
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1
+      kind: Kustomization
+      name: kyverno
+      namespace: flux-system
+      ready: true
+  inputs:
+    - versions:
+        - version: "1.0.0"
+          tag: "1.0.1"
+          commit: "95a0576f04837b599b5cfbf1fae6908728197fc6"
+          policies:
+            - require-department-label
+            - require-known-department-label
+        - version: "2.0.0"
+          tag: "2.0.1"
+          commit: "e505587b1f8ab674b6147a8c955f468b49fa9ab4"
+          policies:
+            - require-department-label
+            - require-known-department-label
+        - version: "2.1.1"
+          tag: "2.1.1"
+          commit: "95579dd567b2c0e490ce56aeb0504290085651f6"
+          policies:
+            - require-department-label
+            - require-known-department-label
+            - require-owner-annotation
+  resourcesTemplate: |
+    << range $v := inputs.versions >>
+    ---
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: GitRepository
+    metadata:
+      name: policy-<< $v.version >>
+      namespace: flux-system
+    spec:
+      interval: 1m0s
+      url: https://github.com/policy-as-versioned-flux/policy
+      ref:
+        tag: v<< $v.tag >>
+        commit: << $v.commit >>
+    << range $p := $v.policies >>
+    ---
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: policy-<< $v.version >>-<< $p >>
+      namespace: flux-system
+    spec:
+      interval: 1m0s
+      sourceRef:
+        kind: GitRepository
+        name: policy-<< $v.version >>
+      path: ./workloads/kyverno/<< $p >>
+      prune: true
+      wait: true
+      timeout: 3m0s
+      dependsOn:
+        - name: kyverno
+      healthCheckExprs:
+        - apiVersion: policies.kyverno.io/v1
+          kind: ValidatingPolicy
+          current: status.conditionStatus.ready == true
+    << end >>
+    << end >>

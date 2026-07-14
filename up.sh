@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # One documented command sequence: laptop -> KiND cluster with Flux Operator
-# (FluxInstance, ADR-0005), Kyverno engine (>=1.18, ADR-0003), policy v1.0.0,
-# and one consumer app, all reconciling live via Flux GitOps (issue 06).
-# Idempotent -- safe to re-run. Readiness is gated throughout by native
-# `kubectl wait` on Ready conditions, never a jsonpath polling loop.
+# (FluxInstance, ADR-0005), Kyverno engine (>=1.18, ADR-0003), three
+# coexisting policy versions via one ResourceSet (issue 08), and three
+# consumer apps, all reconciling live via Flux GitOps. Idempotent -- safe
+# to re-run. Readiness is gated throughout by native `kubectl wait` on
+# Ready conditions, never a jsonpath polling loop.
 #
 # Prereqs: docker, kind, kubectl, helm. ~3-5 min from cold (varies with image pull speed).
 set -euo pipefail
@@ -26,16 +27,22 @@ kubectl apply -f clusters/cluster1/bootstrap.yaml >/dev/null
 kubectl -n flux-system wait --for=condition=Ready gitrepository/fleet --timeout=2m
 kubectl -n flux-system wait --for=condition=Ready kustomization/kyverno --timeout=5m
 
-echo "== 5. Policy v1.0.0 + one consumer app, from their own pinned/tracked sources =="
-kubectl apply -f clusters/cluster1/policy-v1.0.0.yaml >/dev/null
+echo "== 5. Policy versions (ResourceSet: range over the {version,commit} array) + three consumer apps =="
+kubectl apply -f clusters/cluster1/policy-versions.yaml >/dev/null
 kubectl apply -f clusters/cluster1/apps.yaml >/dev/null
+kubectl -n flux-system wait --for=condition=Ready resourceset/policy-versions --timeout=1m
 kubectl -n flux-system wait --for=condition=Ready \
-  kustomization/policy-v1-0-0-require-department-label \
-  kustomization/policy-v1-0-0-require-known-department-label \
+  kustomization/policy-1.0.0-require-department-label \
+  kustomization/policy-1.0.0-require-known-department-label \
+  kustomization/policy-2.0.0-require-department-label \
+  kustomization/policy-2.0.0-require-known-department-label \
+  kustomization/policy-2.1.1-require-department-label \
+  kustomization/policy-2.1.1-require-known-department-label \
+  kustomization/policy-2.1.1-require-owner-annotation \
   --timeout=3m
 kubectl -n flux-system wait --for=condition=Ready kustomization/apps --timeout=2m
 
-echo "== OK: KiND cluster '$CLUSTER' has Flux Operator + Kyverno + policy v1.0.0 + app1 healthy =="
+echo "== OK: KiND cluster '$CLUSTER' has Flux Operator + Kyverno + 3 coexisting policy versions + 3 apps healthy =="
 kubectl -n kyverno get deploy
 kubectl get validatingpolicy
-kubectl get pod app1 --show-labels
+kubectl get pods -l 'mycompany.com/policy-version' --show-labels
