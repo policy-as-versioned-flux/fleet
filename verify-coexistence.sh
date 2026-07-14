@@ -6,6 +6,7 @@ set -euo pipefail
 echo "== three versions live side by side, collision-free (7 policies: 2+2+3) =="
 got=$(kubectl get validatingpolicy -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | sort)
 want=$(cat <<'EOF' | sort
+orphan-guard
 require-department-label-1.0.0
 require-known-department-label-1.0.0
 require-department-label-2.0.0

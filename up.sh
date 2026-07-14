@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # One documented command sequence: laptop -> KiND cluster with Flux Operator
 # (FluxInstance, ADR-0005), Kyverno engine (>=1.18, ADR-0003), three
-# coexisting policy versions via one ResourceSet (issue 08), and three
-# consumer apps, all reconciling live via Flux GitOps. Idempotent -- safe
-# to re-run. Readiness is gated throughout by native `kubectl wait` on
-# Ready conditions, never a jsonpath polling loop.
+# coexisting policy versions + the orphan guard via one ResourceSet (issues
+# 08, 09), and three consumer apps, all reconciling live via Flux GitOps.
+# Idempotent -- safe to re-run. Readiness is gated throughout by native
+# `kubectl wait` on Ready conditions, never a jsonpath polling loop.
 #
 # Prereqs: docker, kind, kubectl, helm. ~3-5 min from cold (varies with image pull speed).
 set -euo pipefail
@@ -40,9 +40,10 @@ kubectl -n flux-system wait --for=condition=Ready \
   kustomization/policy-2.1.1-require-known-department-label \
   kustomization/policy-2.1.1-require-owner-annotation \
   --timeout=3m
+kubectl wait --for=jsonpath='{.status.conditionStatus.ready}'=true validatingpolicy/orphan-guard --timeout=1m
 kubectl -n flux-system wait --for=condition=Ready kustomization/apps --timeout=2m
 
-echo "== OK: KiND cluster '$CLUSTER' has Flux Operator + Kyverno + 3 coexisting policy versions + 3 apps healthy =="
+echo "== OK: KiND cluster '$CLUSTER' has Flux Operator + Kyverno + 3 coexisting policy versions + orphan guard + 3 apps healthy =="
 kubectl -n kyverno get deploy
 kubectl get validatingpolicy
 kubectl get pods -l 'mycompany.com/policy-version' --show-labels

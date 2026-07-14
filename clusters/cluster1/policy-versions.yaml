@@ -27,6 +27,15 @@
 # that without either retrofitting immutable tags or hardcoding a
 # lowest-common-denominator list. A future release that adds the
 # aggregating kustomization.yaml could drop this inner list.
+#
+# Also generates the orphan guard (issue 09, CONTEXT.md "Orphan guard"):
+# one deterministic catch-all Deny ValidatingPolicy whose CEL allow-list is
+# rendered from this SAME inputs.versions array, so it cannot drift from
+# the installed set -- adding/removing a version changes both the
+# installed policies AND the guard's allow-list in the same reconcile.
+# Because every versioned policy (gates included) only matches workloads
+# that opt in via the label, the guard is what makes the gate tier a
+# locked door rather than an opt-in door.
 apiVersion: fluxcd.controlplane.io/v1
 kind: ResourceSet
 metadata:
@@ -98,3 +107,54 @@ spec:
           current: status.conditionStatus.ready == true
     << end >>
     << end >>
+    ---
+    # Orphan guard. Deny, not Audit: this is a fresh cluster, not a
+    # brownfield estate with a pre-existing unlabelled fleet to avoid
+    # disrupting -- CONTEXT.md/ADR-0006 note a brownfield estate may start
+    # this in Audit and promote by editorial PR (never timed/automatic),
+    # which is a real deployment option this comment documents but doesn't
+    # need here. Excludes cluster-system namespaces: an unconstrained
+    # catch-all on all Pods would deny Kyverno's/Flux's/kube-system's own
+    # pod rollouts, none of which carry (or should need) a
+    # mycompany.com/policy-version label.
+    apiVersion: policies.kyverno.io/v1
+    kind: ValidatingPolicy
+    metadata:
+      name: orphan-guard
+      annotations:
+        policies.kyverno.io/title: Orphan guard
+        policies.kyverno.io/subject: Pod
+        policies.kyverno.io/description: >-
+          Deny-at-admission catch-all: every Pod outside the cluster-system
+          namespaces must carry a mycompany.com/policy-version label whose
+          value is one of the versions currently installed on this cluster.
+          A missing label is a violation; an unknown/retired one is a
+          violation. The allow-list is templated from the same
+          ResourceSet input that installs the versions (this file), so it
+          cannot drift from the installed set.
+    spec:
+      validationActions:
+        - Deny
+      matchConstraints:
+        resourceRules:
+          - apiGroups: [""]
+            apiVersions: ["v1"]
+            operations: ["CREATE", "UPDATE"]
+            resources: ["pods"]
+        namespaceSelector:
+          matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: NotIn
+              values:
+                - kube-system
+                - kube-public
+                - kube-node-lease
+                - kyverno
+                - flux-system
+                - local-path-storage
+      validations:
+        - expression: >-
+            has(object.metadata.labels) &&
+            'mycompany.com/policy-version' in object.metadata.labels &&
+            object.metadata.labels['mycompany.com/policy-version'] in [<< range $i, $v := inputs.versions >><< if $i >>, << end >>'<< $v.version >>'<< end >>]
+          message: "Pods must carry a mycompany.com/policy-version label matching a currently-installed version."

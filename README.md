@@ -6,9 +6,24 @@ ControlPlane Flux Operator (`FluxInstance`,
 the Kyverno engine (`>=1.18`,
 [ADR-0003](https://github.com/policy-as-versioned-flux/policy-as-versioned-flux/blob/main/docs/adr/0003-kyverno-validatingpolicy-cel.md)),
 **three policy versions coexisting side by side** (`v1.0.1`, `v2.0.1`,
-`v2.1.1`, ADR-0001 + ADR-0005's `ResourceSet` matrix, issue 08), and three
-consumer apps (one per version) — all reconciling live from git, not
-one-shot `kubectl apply`.
+`v2.1.1`, ADR-0001 + ADR-0005's `ResourceSet` matrix, issue 08), the
+**orphan guard** (issue 09, the deterministic Deny catch-all that makes the
+gate tier a locked door), and three consumer apps (one per version) — all
+reconciling live from git, not one-shot `kubectl apply`.
+
+**Known gap (issue 08/09):** the version self-scoping mechanism was
+corrected from `matchConstraints.objectSelector` to `matchConditions`
+partway through (see the policy repo's `1466fdc` and this hub's ADR-0003)
+after finding Kyverno flattens every installed ValidatingPolicy's
+objectSelector into one shared webhook. The fix is on the policy repo's
+`main`, but `v1.0.0`/`v1.0.1`/`v2.0.0`/`v2.0.1`/`v2.1.1` are already tagged
+and immutable with the old pattern baked in -- new patch tags are needed
+before this fleet repo's `policy-versions.yaml` can point at genuinely
+coexistence-safe releases. Until then, `verify-coexistence.sh` and
+`verify-orphan-guard.sh`'s differential/cross-version checks are flaky by
+construction (Kyverno's shared-webhook selector reflects whichever policy
+it reconciled last), not because the ResourceSet/orphan-guard mechanisms
+built here are wrong.
 
 ```
 flux-instance.yaml            FluxInstance -- pinned Flux 2.9.2, upstream-alpine variant
@@ -30,15 +45,19 @@ verify-live.sh                 proves the admission verdicts: compliant admits, 
                                 unlabelled workload untouched
 verify-coexistence.sh          proves issue 08: three versions live side by side,
                                 collision-free, each judging only its own opted-in workloads
+verify-orphan-guard.sh         proves issue 09: no label denied, unknown version denied,
+                                allow-list tracks the installed set, pre-existing orphans
+                                reported not evicted
 ```
 
 ## Run it
 
 ```sh
-./up.sh                 # KiND -> Flux Operator -> Kyverno -> 3 policy versions -> 3 apps
-./verify-live.sh        # admission verdicts against what's live
-./verify-coexistence.sh # multi-version coexistence claims against what's live
-./down.sh               # tear down; ./up.sh again recreates cleanly
+./up.sh                  # KiND -> Flux Operator -> Kyverno -> 3 policy versions -> guard -> 3 apps
+./verify-live.sh         # admission verdicts against what's live
+./verify-coexistence.sh  # multi-version coexistence claims against what's live
+./verify-orphan-guard.sh # orphan guard claims against what's live
+./down.sh                # tear down; ./up.sh again recreates cleanly
 ```
 
 Prereqs: docker, kind, kubectl, helm, flux, jq. Readiness is gated by native
