@@ -1,4 +1,4 @@
-# The crux (PRD §6.4, ADR-0005): one ResourceSet input carrying one nested
+# The crux (pr-gate.yml test PR, will be closed not merged) (PRD §6.4, ADR-0005): one ResourceSet input carrying one nested
 # {version, tag, commit, policies} array. Adding/removing an element is the
 # only change needed to install/retire a version -- everything else
 # (GitRepository + per-policy Kustomizations, all collision-free via
