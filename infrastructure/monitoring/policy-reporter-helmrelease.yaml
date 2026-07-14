@@ -37,6 +37,13 @@ spec:
       # CRD + operator that reconciles it) -- native scrape-config wiring,
       # not a hand-rolled Prometheus scrape_configs edit.
       enabled: true
+      serviceMonitor:
+        # kube-prometheus-stack's Prometheus CR only selects ServiceMonitors
+        # carrying this label by default (serviceMonitorSelector.matchLabels
+        # in the chart's own Prometheus resource) -- without it the
+        # ServiceMonitor exists but Prometheus silently never scrapes it.
+        labels:
+          release: kube-prometheus-stack
       grafana:
         # Ships Policy Reporter's own pre-built dashboards (Overview,
         # PolicyReport Details, ClusterPolicyReport Details) as ConfigMaps

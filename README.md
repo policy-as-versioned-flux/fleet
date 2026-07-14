@@ -28,6 +28,9 @@ built here are wrong.
 ```
 flux-instance.yaml            FluxInstance -- pinned Flux 2.9.2, upstream-alpine variant
 infrastructure/kyverno/       Kyverno engine: Namespace + HelmRepository + HelmRelease
+infrastructure/monitoring/    issue 14: kube-prometheus-stack + Policy Reporter (both pinned) --
+                                PolicyReport results as Prometheus metrics, Policy Reporter's own
+                                pre-built Grafana dashboards auto-discovered by the sidecar
 clusters/cluster1/
   bootstrap.yaml               self-referential GitRepository+Kustomization: this repo
                                 syncs itself, so infrastructure/kyverno/ becomes a real
@@ -54,6 +57,9 @@ verify-orphan-guard.sh         proves issue 09: no label denied, unknown version
 verify-renovate.sh             proves issue 11: the customManager correctly targets each
                                 element of the real multi-version array independently (a
                                 fixture, not the live cluster -- no kubectl/KiND needed)
+verify-monitoring.sh           proves issue 14: PolicyReport metrics for every installed
+                                version reach Prometheus; a non-compliant Audit workload
+                                shows failing there without being evicted
 ```
 
 ## Run it
@@ -64,8 +70,14 @@ verify-renovate.sh             proves issue 11: the customManager correctly targ
 ./verify-coexistence.sh  # multi-version coexistence claims against what's live
 ./verify-orphan-guard.sh # orphan guard claims against what's live
 ./verify-renovate.sh     # Renovate customManager against a fixture -- no cluster needed
+./verify-monitoring.sh   # PolicyReport -> Prometheus claims against what's live
 ./down.sh                # tear down; ./up.sh again recreates cleanly
 ```
+
+Grafana (`kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80`,
+`admin`/`admin`) ships three Policy Reporter dashboards out of the box: "PolicyReports"
+(cluster-wide, filterable by the `policy` variable -- which carries the version suffix),
+"PolicyReport Details", "ClusterPolicyReport Details".
 
 Prereqs: docker, kind, kubectl, helm, flux, jq. Readiness is gated by native
 `kubectl wait --for=condition=Ready` throughout, never a jsonpath polling
