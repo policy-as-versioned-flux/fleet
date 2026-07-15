@@ -166,6 +166,19 @@ spec:
                 - kyverno
                 - flux-system
                 - local-path-storage
+                # issue 18/issue 08 live verification: discovered live --
+                # crossplane's own control-plane Deployments (crossplane,
+                # crossplane-rbac-manager) were denied at admission by this
+                # exact guard (no mycompany.com/policy-version label,
+                # correctly so per the guard's own rule -- they're
+                # infrastructure, not app workloads). monitoring's pods
+                # predate this guard reliably enforcing at all (issue 08's
+                # webhook-flattening bug meant it wasn't consistently active
+                # until the matchConditions fix landed cluster-wide), so
+                # they slipped through unnoticed -- excluded explicitly now
+                # rather than relying on that.
+                - crossplane-system
+                - monitoring
       validations:
         - expression: >-
             has(object.metadata.labels) &&
