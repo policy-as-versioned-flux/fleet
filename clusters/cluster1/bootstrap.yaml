@@ -27,3 +27,21 @@ spec:
   prune: true
   wait: true
   timeout: 3m0s
+---
+# Issue 16: Provider + Alert broadcasting policy source revision changes.
+# No dependsOn -- notification-controller and its CRDs are ambient, same as
+# the "kyverno" Kustomization above has none.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: notifications
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./infrastructure/notifications
+  prune: true
+  wait: true
+  timeout: 3m0s

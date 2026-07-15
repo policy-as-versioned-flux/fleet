@@ -1,0 +1,49 @@
+# Issue 16's Provider needs somewhere to actually POST to so the alert can
+# be proven live without an external chat-webhook credential this repo
+# doesn't have. A real deployment swaps provider.yaml's `address` for a real
+# Slack/Teams/etc webhook URL (typically via a SecretRef) -- this in-cluster
+# echo receiver exists only so `kubectl logs` can show the alert arriving.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: revision-echo
+  namespace: flux-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: revision-echo
+  template:
+    metadata:
+      labels:
+        app: revision-echo
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: echo
+          image: mendhak/http-https-echo:31
+          ports:
+            - containerPort: 8080
+          env:
+            - name: LOG_IGNORE_PATH
+              value: /healthz
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsUser: 1000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: revision-echo
+  namespace: flux-system
+spec:
+  selector:
+    app: revision-echo
+  ports:
+    - port: 8080
+      targetPort: 8080

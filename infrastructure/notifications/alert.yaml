@@ -1,0 +1,19 @@
+# Communicable's push half (ADR-0001): every policy-source revision change
+# is announced, not discovered. Scoped via matchLabels to exactly the
+# GitRepository objects policy-versions.yaml's ResourceSet generates
+# (stamped automatically with resourceset.fluxcd.controlplane.io/name) --
+# not the fleet/apps sources, which aren't policy revisions.
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: policy-revision-alert
+  namespace: flux-system
+spec:
+  providerRef:
+    name: policy-revision-sink
+  eventSeverity: info
+  eventSources:
+    - kind: GitRepository
+      name: "*"
+      matchLabels:
+        resourceset.fluxcd.controlplane.io/name: policy-versions
