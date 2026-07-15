@@ -1,0 +1,20 @@
+# Issue 18's "sample RDS/S3 CR ... simply sits unreconciled" claim, made
+# concrete: a real Instance CR, applying successfully once
+# instances.rds.aws.m.upbound.io is Established, then never progressing --
+# `providerConfigRef` is left at its schema default
+# ({kind: ClusterProviderConfig, name: default}), which this repo never
+# creates (no cloud credentials anywhere here), so Crossplane can observe
+# the object exists but has nothing to reconcile it against.
+apiVersion: rds.aws.m.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: sample-unreconciled
+  namespace: default
+spec:
+  forProvider:
+    region: eu-west-1
+    engine: postgres
+    instanceClass: db.t3.micro
+    allocatedStorage: 20
+    username: demo
+    multiAz: true

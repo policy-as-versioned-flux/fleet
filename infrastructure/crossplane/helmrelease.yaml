@@ -1,0 +1,25 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: crossplane
+  namespace: crossplane-system
+spec:
+  interval: 1h
+  releaseName: crossplane
+  chart:
+    spec:
+      chart: crossplane
+      # Crossplane v2 (namespaced managed resources, ADR-0004) -- the AWS
+      # provider-family's *.aws.m.upbound.io CRDs this cluster targets only
+      # exist from a v2-line provider, which needs a v2-line core.
+      version: "2.3.3"
+      sourceRef:
+        kind: HelmRepository
+        name: crossplane-stable
+        namespace: crossplane-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
