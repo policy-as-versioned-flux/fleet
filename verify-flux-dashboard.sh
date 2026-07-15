@@ -12,7 +12,7 @@ PROM_PID=$!
 sleep 3
 
 echo "== gotk_resource_info shows every pinned policy version =="
-for v in 1.0.0 2.0.0 2.1.1; do
+for v in 1.0.0 2.0.0 2.2.0; do
   n=$(curl -s "http://localhost:39090/api/v1/query" \
     --data-urlencode "query=gotk_resource_info{customresource_kind=\"GitRepository\",name=\"policy-$v\"}" \
     | jq '.data.result | length')
@@ -26,7 +26,7 @@ kubectl -n monitoring get configmap flux-policy-dashboard -o jsonpath='{.metadat
 echo "OK"
 
 echo "== selecting a version shows where it's installed and whether workloads on it pass =="
-for v in 1.0.0 2.0.0 2.1.1; do
+for v in 1.0.0 2.0.0 2.2.0; do
   where=$(curl -s "http://localhost:39090/api/v1/query" \
     --data-urlencode "query=gotk_resource_info{customresource_kind=~\"GitRepository|Kustomization\",name=~\".*$v.*\"}" \
     | jq '.data.result | length')

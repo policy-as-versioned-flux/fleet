@@ -14,7 +14,7 @@ echo "== PolicyReport results for all installed versions appear as Prometheus me
 kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 39090:9090 >/dev/null 2>&1 &
 PROM_PID=$!
 sleep 3
-for v in 1.0.0 2.0.0 2.1.1; do
+for v in 1.0.0 2.0.0 2.2.0; do
   n=$(curl -s "http://localhost:39090/api/v1/query" --data-urlencode "query=policy_report_result{policy=~\".*-$v\"}" \
     | jq '.data.result | length')
   [ "$n" -gt 0 ] || { echo "FAIL: no policy_report_result metric mentions version $v"; exit 1; }
@@ -29,7 +29,7 @@ metadata:
   name: monitoring-fail-test
   namespace: default
   labels:
-    mycompany.com/policy-version: "2.1.1"
+    mycompany.com/policy-version: "2.2.0"
     department: platform
 spec:
   containers:
