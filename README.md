@@ -5,10 +5,14 @@ ControlPlane Flux Operator (`FluxInstance`,
 [ADR-0005](https://github.com/policy-as-versioned-flux/policy-as-versioned-flux/blob/main/docs/adr/0005-controlplane-flux-operator-resourceset.md)),
 the Kyverno engine (`>=1.18`,
 [ADR-0003](https://github.com/policy-as-versioned-flux/policy-as-versioned-flux/blob/main/docs/adr/0003-kyverno-validatingpolicy-cel.md)),
-**three policy versions coexisting side by side** (`v1.0.2`, `v2.0.2`,
+**three policy versions coexisting side by side** (`v1.0.3`, `v2.0.3`,
 `v2.2.0`, ADR-0001 + ADR-0005's `ResourceSet` matrix, issue 08), the
 **orphan guard** (issue 09, the deterministic Deny catch-all that makes the
-gate tier a locked door), and three consumer apps (one per version) — all
+gate tier a locked door), **the cloud plane at admission** (issue 19 --
+`v2.2.0`'s two Crossplane-targeting policies ride the same coexistence
+matrix as first-class versions), a second, narrower cluster profile
+(issue 10, `cluster2`, `>=2.0.0` only, proving per-cluster narrowing and
+live retirement), and three consumer apps (one per version) — all
 reconciling live from git, not one-shot `kubectl apply`.
 
 **Issue 08/09, resolved:** the version self-scoping mechanism was corrected
@@ -18,9 +22,14 @@ every installed ValidatingPolicy's `objectSelector` into one shared webhook
 -- only the most-recently-reconciled version's workloads were ever
 evaluated at all. `v1.0.0`/`v1.0.1`/`v2.0.0`/`v2.0.1`/`v2.1.1` were already
 tagged and immutable with the old pattern baked in, so this repo now points
-at `v1.0.2`/`v2.0.2` (new, zero-verdict-impact patch tags carrying just the
+at `v1.0.3`/`v2.0.3` (new, zero-verdict-impact patch tags carrying just the
 fix into the two older lines) and `v2.2.0` (a real content release: same
-fix + issue 17's cloud-plane policies) instead.
+fix + issue 17's cloud-plane policies) instead. (`v1.0.2`/`v2.0.2` also
+exist but are skipped -- their commits weren't reachable from any branch,
+a documented Flux/go-git shallow-fetch-by-tag limitation, not a broken
+tag; see `clusters/cluster1/policy-versions.yaml`'s comment for the full
+story and why `policy`'s `release-pins/v1.0.3`/`release-pins/v2.0.3`
+branches are load-bearing, not cleanup candidates.)
 
 ```
 flux-instance.yaml            FluxInstance -- pinned Flux 2.9.2, upstream-alpine variant
@@ -91,6 +100,16 @@ pr-gate-check.sh                issue 12: gitsign verify-tag + tag-resolves-to-c
                                 required by a branch ruleset before merge) and locally
                                 (./pr-gate-check.sh <base-ref> <head-ref>) -- no real PR needed
                                 to exercise it, only the {tag, commit} pairs it reads
+clusters/cluster2/              issue 10: a second, independent cluster profile from the SAME
+                                fleet repo, >=2.0.0 only -- proves per-cluster narrowing.
+                                Workload-plane only, minimal on purpose (no monitoring/
+                                crossplane/notifications -- cluster-agnostic concerns already
+                                proven once on cluster1).
+up2.sh / down2.sh               cluster2's up.sh/down.sh
+verify-retirement.sh            proves issue 10 against BOTH live clusters at once: a workload
+                                pinned to 1.0.0 is refused on cluster2, admits on cluster1;
+                                retiring 2.0.0 from cluster2's array prunes it and the orphan
+                                guard refuses that version in the same reconcile
 ```
 
 ## Run it
@@ -106,7 +125,10 @@ pr-gate-check.sh                issue 12: gitsign verify-tag + tag-resolves-to-c
 ./verify-flux-dashboard.sh  # Flux-revision + PolicyReports dashboard claims against what's live
 ./verify-crossplane.sh   # Crossplane CRD install + ordering claims against what's live
 ./pr-gate-check.sh HEAD~1 HEAD  # PR gate against any two refs -- no cluster, no real PR needed
-./down.sh                # tear down; ./up.sh again recreates cleanly
+./up2.sh                 # second cluster: KiND -> Flux Operator -> Kyverno -> >=2.0.0 only
+./verify-retirement.sh   # issue 10 claims against BOTH live clusters (needs up.sh AND up2.sh)
+./down.sh                # tear down cluster1; ./up.sh again recreates cleanly
+./down2.sh                # tear down cluster2; ./up2.sh again recreates cleanly
 ```
 
 Grafana (`kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80`,
@@ -117,7 +139,8 @@ PolicyReports" dashboard, sharing one `cluster`+`policy-version` variable across
 version, where" panel (`gotk_resource_info`) and an "is it passing" panel
 (`policy_report_result`). `cluster` is a single fixed value today (one Prometheus per cluster) --
 real cross-cluster querying (Thanos, federation, or a per-cluster datasource this variable picks
-between) is issue 10's design question once `cluster2` exists, not answered here.
+between) is still open: `cluster2` (issue 10) exists now, but doesn't run monitoring (deliberately
+minimal, see that section above), so there's still no second Prometheus to actually query across.
 
 Prereqs: docker, kind, kubectl, helm, flux, jq. Readiness is gated by native
 `kubectl wait --for=condition=Ready` throughout, never a jsonpath polling
