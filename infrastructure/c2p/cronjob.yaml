@@ -1,0 +1,63 @@
+# Issue 21 / ADR-0009: "collection is wired as a CronJob / Flux Kustomization
+# ... small glue we own." golang:1.24-alpine as the image (not a custom-built
+# image pushed to a registry -- C2P is built from source at run time, same
+# technique already proven in spikes/c2p-real-job/run.sh) keeps this to zero
+# new CI/registry infrastructure, at the cost of a slower run (git clone + go
+# build each time) -- an acceptable tradeoff for a 15-minute-interval job.
+#
+# Single container, root: `apk add` needs it, and a separate non-root
+# initContainer wouldn't help -- each container in a pod has its own
+# writable filesystem layer, so packages an initContainer installs don't
+# persist to the main container even from the same base image. This is a
+# short-lived batch job touching only its own ephemeral container
+# filesystem (no host access, no privileged mode) -- not the same risk
+# profile as a long-running service, but still capped: no
+# privilege-escalation, no added capabilities.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: c2p-collector
+  namespace: monitoring
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: c2p-collector
+          restartPolicy: Never
+          containers:
+            - name: c2p-collector
+              image: golang:1.24-alpine
+              command:
+                - /bin/sh
+                - -c
+                - apk add --no-cache git jq curl >/dev/null && /bin/sh /scripts/run.sh
+              env:
+                - name: HOME
+                  value: /work
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                - name: config
+                  mountPath: /config
+                - name: work
+                  mountPath: /work
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: {drop: ["ALL"]}
+              resources:
+                requests: {cpu: 100m, memory: 256Mi}
+                limits: {memory: 512Mi}
+          volumes:
+            - name: script
+              configMap:
+                name: c2p-run-script
+                defaultMode: 0755
+            - name: config
+              configMap:
+                name: c2p-component-definition
+            - name: work
+              emptyDir: {}

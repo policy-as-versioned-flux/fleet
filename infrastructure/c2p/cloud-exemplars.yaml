@@ -1,0 +1,57 @@
+# Issue 21: permanent, version-scoped cloud exemplars for the OSCAL panel to
+# have real findings to report on -- same idiom as the apps repo's app1/2/3
+# for the workload plane. Namespace: default, same as everything else here.
+#
+# S3 (sc-28) is a Deny gate -- "pass-only by construction" (ADR-0009): a
+# non-compliant bucket can never exist on-cluster to report on, so only a
+# compliant exemplar is possible here, by design, not an oversight.
+apiVersion: s3.aws.m.upbound.io/v1beta1
+kind: BucketServerSideEncryptionConfiguration
+metadata:
+  name: cio-dashboard-s3-compliant
+  namespace: default
+  labels:
+    mycompany.com/policy-version: "2.2.0"
+spec:
+  forProvider:
+    region: eu-west-1
+    bucketSelector:
+      matchLabels:
+        testing.upbound.io/example-name: mybucket
+    rule:
+      - applyServerSideEncryptionByDefault:
+          sseAlgorithm: AES256
+---
+# RDS (cp-10) is Audit -- both states can legitimately coexist permanently,
+# unlike the Deny-gated S3 control above.
+apiVersion: rds.aws.m.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: cio-dashboard-rds-compliant
+  namespace: default
+  labels:
+    mycompany.com/policy-version: "2.2.0"
+spec:
+  forProvider:
+    region: eu-west-1
+    engine: postgres
+    instanceClass: db.t3.micro
+    allocatedStorage: 20
+    username: demo
+    multiAz: true
+---
+apiVersion: rds.aws.m.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: cio-dashboard-rds-noncompliant
+  namespace: default
+  labels:
+    mycompany.com/policy-version: "2.2.0"
+spec:
+  forProvider:
+    region: eu-west-1
+    engine: postgres
+    instanceClass: db.t3.micro
+    allocatedStorage: 20
+    username: demo
+    multiAz: false

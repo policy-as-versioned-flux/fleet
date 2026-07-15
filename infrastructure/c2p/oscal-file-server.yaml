@@ -1,0 +1,75 @@
+# Issue 21: serves the CronJob's OSCAL output over plain, unauthenticated
+# in-cluster HTTP so Grafana's infinity datasource can read it with zero
+# auth/token plumbing -- mounts the ConfigMap the collector writes as a
+# volume (kubelet keeps mounted ConfigMap volumes in sync automatically,
+# no restart needed when the CronJob updates it) and serves it via nginx.
+# Same "tiny in-cluster receiver, no bespoke exporter service" idiom as
+# issue 16's notification receiver.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oscal-file-server
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: oscal-file-server}
+  template:
+    metadata:
+      labels: {app: oscal-file-server}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports: [{containerPort: 8080}]
+          volumeMounts:
+            - name: oscal
+              mountPath: /usr/share/nginx/html
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d
+            - name: tmp
+              mountPath: /var/cache/nginx
+            - name: tmp
+              mountPath: /var/run
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+      volumes:
+        - name: oscal
+          configMap:
+            name: oscal-assessment-results
+            optional: true
+        - name: nginx-conf
+          configMap:
+            name: oscal-file-server-nginx-conf
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oscal-file-server-nginx-conf
+  namespace: monitoring
+data:
+  default.conf: |
+    server {
+      listen 8080;
+      location / {
+        root /usr/share/nginx/html;
+        add_header Access-Control-Allow-Origin *;
+        autoindex on;
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oscal-file-server
+  namespace: monitoring
+spec:
+  selector: {app: oscal-file-server}
+  ports: [{port: 80, targetPort: 8080}]

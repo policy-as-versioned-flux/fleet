@@ -1,0 +1,59 @@
+# Issue 21: the collection job needs to read every PolicyReport cluster-wide
+# (get/list only -- it never mutates policy content, same read-only posture
+# as issue 23's governance-agent) and write exactly one ConfigMap in
+# monitoring for Grafana to read. No other access.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: c2p-collector
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: c2p-collector-policyreports
+rules:
+  - apiGroups: ["wgpolicyk8s.io"]
+    resources: ["policyreports", "clusterpolicyreports"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: c2p-collector-policyreports
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: c2p-collector-policyreports
+subjects:
+  - kind: ServiceAccount
+    name: c2p-collector
+    namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: c2p-collector-configmap
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["oscal-assessment-results"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: c2p-collector-configmap
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: c2p-collector-configmap
+subjects:
+  - kind: ServiceAccount
+    name: c2p-collector
+    namespace: monitoring
