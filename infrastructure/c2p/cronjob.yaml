@@ -49,8 +49,13 @@ spec:
                 allowPrivilegeEscalation: false
                 capabilities: {drop: ["ALL"]}
               resources:
-                requests: {cpu: 100m, memory: 256Mi}
-                limits: {memory: 512Mi}
+                # `go build`-ing C2P's dependency tree from cold (no module
+                # cache persists between runs -- work is an emptyDir) needs
+                # real headroom. 512Mi OOM-killed in testing; confirmed live
+                # that 1536Mi completes the full run (build + collect +
+                # publish) in ~4 minutes.
+                requests: {cpu: 250m, memory: 512Mi}
+                limits: {memory: 1536Mi}
           volumes:
             - name: script
               configMap:
