@@ -1,0 +1,12 @@
+# Issue 18: provider-family package (not the monolithic provider-aws --
+# this cluster only needs S3+RDS, not every AWS service's CRDs), v2 line
+# for the *.aws.m.upbound.io namespaced CRDs the policy repo's cloud plane
+# targets (see policy repo's cloud/require-s3-bucket-encryption). No
+# ProviderConfig anywhere in this repo -- installing the package and its
+# CRDs needs no credentials, only *reconciling* a managed resource would.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-s3
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-s3:v2.6.0

@@ -50,21 +50,25 @@ spec:
       ready: true
   inputs:
     - versions:
+        # issue 08: all three now point at the matchConditions-fixed tags
+        # (v1.0.2/v2.0.2/v2.2.0) -- zero verdict impact, mechanism-only patch
+        # for the two older lines; v2.2.0 is a real content release (also
+        # ships the cloud plane, not yet wired in here -- see issue 19).
         - version: "1.0.0"
-          tag: "1.0.1"
-          commit: "95a0576f04837b599b5cfbf1fae6908728197fc6"
+          tag: "1.0.2"
+          commit: "d44944a1079d665dc88d1de9d98caf9d127d44e0"
           policies:
             - require-department-label
             - require-known-department-label
         - version: "2.0.0"
-          tag: "2.0.1"
-          commit: "e505587b1f8ab674b6147a8c955f468b49fa9ab4"
+          tag: "2.0.2"
+          commit: "d56d55f7e0958b8a5ff639081dbfee84b84d28f5"
           policies:
             - require-department-label
             - require-known-department-label
-        - version: "2.1.1"
-          tag: "2.1.1"
-          commit: "95579dd567b2c0e490ce56aeb0504290085651f6"
+        - version: "2.2.0"
+          tag: "2.2.0"
+          commit: "6ad22ca85a444b289493725b178666f2156c8b32"
           policies:
             - require-department-label
             - require-known-department-label
