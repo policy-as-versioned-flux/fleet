@@ -1,0 +1,7 @@
+# See provider-aws-s3.yaml for the family-package / v2-line / no-auth story.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-rds
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-rds:v2.6.0

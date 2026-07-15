@@ -28,6 +28,11 @@ EXPECTED_ISSUER="https://accounts.google.com"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
+if git diff --quiet "$BASE_REF" "$HEAD_REF" -- clusters/ 2>/dev/null; then
+  echo "== nothing under clusters/ changed between $BASE_REF and $HEAD_REF -- nothing to gate =="
+  exit 0
+fi
+
 echo "== extract {version, tag, commit, policies} from $HEAD_REF =="
 git show "$HEAD_REF:clusters/cluster1/policy-versions.yaml" > "$WORK/head.yaml"
 git show "$BASE_REF:clusters/cluster1/policy-versions.yaml" > "$WORK/base.yaml" 2>/dev/null || echo "[]" > "$WORK/base.yaml"

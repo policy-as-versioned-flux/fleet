@@ -3,11 +3,16 @@ name: pr-gate
 # Issue 12: makes a Renovate bump PR trustworthy before merge (PRD §5).
 # Runs pr-gate-check.sh (the same script usable locally) with the PR's
 # base/head refs -- see that script for what it actually checks.
+#
+# No `paths:` filter on the trigger: this check is required by a branch
+# ruleset, and a required check gated by `paths:` never reports any status
+# on a PR that doesn't touch those paths -- GitHub then blocks the merge
+# forever waiting on a check that was never going to run. Every PR runs
+# this job; it no-ops (and reports success) when clusters/** wasn't
+# touched, checked inside the job instead of at the trigger.
 
 on:
-  pull_request:
-    paths:
-      - "clusters/**"
+  pull_request: {}
 
 permissions:
   contents: read
