@@ -59,6 +59,15 @@ verify-orphan-guard.sh         proves issue 09: no label denied, unknown version
 verify-renovate.sh             proves issue 11: the customManager correctly targets each
                                 element of the real multi-version array independently (a
                                 fixture, not the live cluster -- no kubectl/KiND needed)
+infrastructure/notifications/  issue 16, communicable's push half: Provider + Alert
+                                broadcasting policy-source revision changes, scoped via
+                                matchLabels to exactly the GitRepository objects
+                                policy-versions.yaml's ResourceSet generates. address points
+                                at an in-cluster echo receiver (receiver.yaml) since this repo
+                                has no real chat-webhook credential -- a real deployment swaps
+                                provider.yaml's address for a real Slack/Teams/etc webhook.
+verify-notifications.sh        proves issue 16: forcing a policy source reconcile makes its
+                                revision arrive at the receiver within one reconcile
 verify-monitoring.sh           proves issue 14: PolicyReport metrics for every installed
                                 version reach Prometheus; a non-compliant Audit workload
                                 shows failing there without being evicted
@@ -92,6 +101,7 @@ pr-gate-check.sh                issue 12: gitsign verify-tag + tag-resolves-to-c
 ./verify-coexistence.sh  # multi-version coexistence claims against what's live
 ./verify-orphan-guard.sh # orphan guard claims against what's live
 ./verify-renovate.sh     # Renovate customManager against a fixture -- no cluster needed
+./verify-notifications.sh # communicable claims against what's live
 ./verify-monitoring.sh   # PolicyReport -> Prometheus claims against what's live
 ./verify-flux-dashboard.sh  # Flux-revision + PolicyReports dashboard claims against what's live
 ./verify-crossplane.sh   # Crossplane CRD install + ordering claims against what's live
