@@ -102,11 +102,12 @@
       "targets": [
         {
           "type": "json",
+          "parser": "backend",
           "source": "url",
           "format": "table",
           "url": "http://oscal-file-server.monitoring.svc.cluster.local/assessment-results.json",
           "url_options": {"method": "GET"},
-          "root_selector": "assessment-results.results[0].findings",
+          "root_selector": "assessment-results.results.0.findings",
           "columns": [
             {"selector": "target.target-id", "text": "control", "type": "string"},
             {"selector": "target.status.state", "text": "state", "type": "string"},
@@ -126,6 +127,7 @@
       "targets": [
         {
           "type": "json",
+          "parser": "backend",
           "source": "url",
           "format": "table",
           "url": "https://api.github.com/repos/policy-as-versioned-flux/fleet/pulls?state=all&per_page=20&sort=created&direction=desc",
