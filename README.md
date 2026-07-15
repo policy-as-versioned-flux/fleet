@@ -54,6 +54,16 @@ verify-orphan-guard.sh         proves issue 09: no label denied, unknown version
 verify-renovate.sh             proves issue 11: the customManager correctly targets each
                                 element of the real multi-version array independently (a
                                 fixture, not the live cluster -- no kubectl/KiND needed)
+infrastructure/crossplane*/    issue 18: Crossplane v2 core + AWS provider-family (S3, RDS)
+                                CRDs, free and KiND-only -- no ProviderConfig, no cloud
+                                credentials anywhere. Three Kustomizations
+                                (crossplane -> crossplane-providers -> crossplane-sample)
+                                chained by dependsOn + healthChecks so the provider CRDs
+                                reaching Established gates everything downstream -- issue 19's
+                                real cloud-policy Kustomizations (blocked on issue 08) will
+                                carry the same dependsOn once unblocked.
+verify-crossplane.sh           proves issue 18: CRDs Established, the ordering held, and the
+                                sample RDS CR sits unreconciled (no auth on the critical path)
 ```
 
 ## Run it
@@ -64,6 +74,7 @@ verify-renovate.sh             proves issue 11: the customManager correctly targ
 ./verify-coexistence.sh  # multi-version coexistence claims against what's live
 ./verify-orphan-guard.sh # orphan guard claims against what's live
 ./verify-renovate.sh     # Renovate customManager against a fixture -- no cluster needed
+./verify-crossplane.sh   # Crossplane CRD install + ordering claims against what's live
 ./down.sh                # tear down; ./up.sh again recreates cleanly
 ```
 
