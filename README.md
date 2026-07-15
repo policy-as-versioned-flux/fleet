@@ -110,6 +110,15 @@ verify-retirement.sh            proves issue 10 against BOTH live clusters at on
                                 pinned to 1.0.0 is refused on cluster2, admits on cluster1;
                                 retiring 2.0.0 from cluster2's array prunes it and the orphan
                                 guard refuses that version in the same reconcile
+infrastructure/c2p/              issue 21: a real, continuously-running (*/15 * * * *) C2P
+                                result2oscal CronJob against the live fleet's own PolicyReports
+                                (not the issue 20 spike's throwaway cluster). Builds C2P from
+                                source at run time (no custom image/registry needed), writes
+                                OSCAL output to a ConfigMap, served over plain unauthenticated
+                                in-cluster HTTP by a tiny nginx pod (oscal-file-server) for
+                                Grafana's infinity datasource to read -- avoids needing a
+                                Grafana ServiceAccount token/RBAC grant. Also carries permanent,
+                                version-labelled cloud exemplars so the job has real findings.
 ```
 
 ## Run it
@@ -134,13 +143,18 @@ verify-retirement.sh            proves issue 10 against BOTH live clusters at on
 Grafana (`kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80`,
 `admin`/`admin`) ships three Policy Reporter dashboards out of the box: "PolicyReports"
 (cluster-wide, filterable by the `policy` variable -- which carries the version suffix),
-"PolicyReport Details", "ClusterPolicyReport Details" -- plus issue 15's own "Flux Revision +
-PolicyReports" dashboard, sharing one `cluster`+`policy-version` variable across a "which
-version, where" panel (`gotk_resource_info`) and an "is it passing" panel
-(`policy_report_result`). `cluster` is a single fixed value today (one Prometheus per cluster) --
-real cross-cluster querying (Thanos, federation, or a per-cluster datasource this variable picks
-between) is still open: `cluster2` (issue 10) exists now, but doesn't run monitoring (deliberately
-minimal, see that section above), so there's still no second Prometheus to actually query across.
+"PolicyReport Details", "ClusterPolicyReport Details" -- plus the "Flux Revision + PolicyReports"
+dashboard (issue 15, completed by issue 21 into the full four-panel CIO story): "which version,
+where" (`gotk_resource_info`), "is it passing" (`policy_report_result`), "are controls satisfied"
+(issue 21 -- OSCAL assessment-results via the infinity datasource, live from the `c2p-collector`
+CronJob), and "adoption velocity" (issue 21 -- real Renovate PR state on this repo, infinity
+querying GitHub's public API). `cluster` is a single fixed value today (one Prometheus per
+cluster) -- real cross-cluster querying (Thanos, federation, or a per-cluster datasource this
+variable picks between) is still open: `cluster2` (issue 10) exists now, but doesn't run
+monitoring (deliberately minimal, see that section above), so there's still no second Prometheus
+to actually query across. The OSCAL and Renovate panels aren't filtered by `policy_version` --
+PRs bump multiple array elements at once and OSCAL findings are control-level, not per-version;
+forcing that filter would misrepresent the data, so they're left unfiltered instead.
 
 Prereqs: docker, kind, kubectl, helm, flux, jq. Readiness is gated by native
 `kubectl wait --for=condition=Ready` throughout, never a jsonpath polling
