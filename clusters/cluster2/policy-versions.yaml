@@ -1,0 +1,123 @@
+# Issue 10: same ResourceSet shape as clusters/cluster1/policy-versions.yaml
+# (see that file for the full design rationale -- version/tag split,
+# per-policy plane, orphan guard templated from the same array), narrowed to
+# `>=2.0.0` only. Proves per-cluster narrowing from the same fleet config:
+# cluster1 installs everything, cluster2 only ever installs this array.
+# Workload-plane only (no cloud policies) -- this ticket's retirement/
+# narrowing story doesn't need the cloud plane, already proven once on
+# cluster1 (issue 19).
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
+metadata:
+  name: policy-versions
+  namespace: flux-system
+spec:
+  dependsOn:
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1
+      kind: Kustomization
+      name: kyverno
+      namespace: flux-system
+      ready: true
+  inputs:
+    - versions:
+        - version: "2.0.0"
+          tag: "2.0.3"
+          commit: "1c2a3728aa885d07d440d2ac5da981adbb40732c"
+          policies:
+            - name: require-department-label
+              plane: workload
+            - name: require-known-department-label
+              plane: workload
+        - version: "2.2.0"
+          tag: "2.2.0"
+          commit: "6ad22ca85a444b289493725b178666f2156c8b32"
+          policies:
+            - name: require-department-label
+              plane: workload
+            - name: require-known-department-label
+              plane: workload
+            - name: require-owner-annotation
+              plane: workload
+  resourcesTemplate: |
+    << range $v := inputs.versions >>
+    ---
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: GitRepository
+    metadata:
+      name: policy-<< $v.version >>
+      namespace: flux-system
+    spec:
+      interval: 1m0s
+      url: https://github.com/policy-as-versioned-flux/policy
+      ref:
+        tag: v<< $v.tag >>
+        commit: << $v.commit >>
+    << range $p := $v.policies >>
+    ---
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: policy-<< $v.version >>-<< $p.name >>
+      namespace: flux-system
+    spec:
+      interval: 1m0s
+      sourceRef:
+        kind: GitRepository
+        name: policy-<< $v.version >>
+      path: ./workloads/kyverno/<< $p.name >>
+      prune: true
+      wait: true
+      timeout: 3m0s
+      dependsOn:
+        - name: kyverno
+      healthCheckExprs:
+        - apiVersion: policies.kyverno.io/v1
+          kind: ValidatingPolicy
+          current: status.conditionStatus.ready == true
+    << end >>
+    << end >>
+    ---
+    # Orphan guard -- see clusters/cluster1/policy-versions.yaml for the full
+    # rationale. Same exclusion list minus crossplane-system/monitoring
+    # (cluster2 doesn't run either).
+    apiVersion: policies.kyverno.io/v1
+    kind: ValidatingPolicy
+    metadata:
+      name: orphan-guard
+      annotations:
+        policies.kyverno.io/title: Orphan guard
+        policies.kyverno.io/subject: Pod
+        policies.kyverno.io/description: >-
+          Deny-at-admission catch-all: every Pod outside the cluster-system
+          namespaces must carry a mycompany.com/policy-version label whose
+          value is one of the versions currently installed on this cluster.
+          A missing label is a violation; an unknown/retired one is a
+          violation. The allow-list is templated from the same
+          ResourceSet input that installs the versions (this file), so it
+          cannot drift from the installed set.
+    spec:
+      validationActions:
+        - Deny
+      matchConstraints:
+        resourceRules:
+          - apiGroups: [""]
+            apiVersions: ["v1"]
+            operations: ["CREATE", "UPDATE"]
+            resources: ["pods"]
+        namespaceSelector:
+          matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: NotIn
+              values:
+                - kube-system
+                - kube-public
+                - kube-node-lease
+                - kyverno
+                - flux-system
+                - local-path-storage
+      validations:
+        - expression: >-
+            has(object.metadata.labels) &&
+            'mycompany.com/policy-version' in object.metadata.labels &&
+            object.metadata.labels['mycompany.com/policy-version'] in [<< range $i, $v := inputs.versions >><< if $i >>, << end >>'<< $v.version >>'<< end >>]
+          message: "Pods must carry a mycompany.com/policy-version label matching a currently-installed version."
