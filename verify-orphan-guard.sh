@@ -46,7 +46,7 @@ echo "OK: refused"
 
 echo "== allow-list templates from the same ResourceSet array as the installed versions =="
 expr=$(kubectl get validatingpolicy orphan-guard -o jsonpath='{.spec.validations[0].expression}')
-for v in 1.0.0 2.0.0 2.1.1; do
+for v in 1.0.0 2.0.0 2.2.0; do
   grep -q "'$v'" <<<"$expr" || { echo "FAIL: orphan-guard's allow-list doesn't mention installed version $v"; exit 1; }
 done
 echo "OK: allow-list contains every currently-installed version"

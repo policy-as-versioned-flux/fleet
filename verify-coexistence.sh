@@ -11,9 +11,9 @@ require-department-label-1.0.0
 require-known-department-label-1.0.0
 require-department-label-2.0.0
 require-known-department-label-2.0.0
-require-department-label-2.1.1
-require-known-department-label-2.1.1
-require-owner-annotation-2.1.1
+require-department-label-2.2.0
+require-known-department-label-2.2.0
+require-owner-annotation-2.2.0
 EOF
 )
 [ "$got" = "$want" ] || { echo "FAIL: expected exactly these ValidatingPolicies, got:"; echo "$got"; exit 1; }

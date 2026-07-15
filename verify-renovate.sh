@@ -16,14 +16,14 @@ WORK=./.work
 rm -rf "$WORK"
 mkdir -p "$WORK"
 
-echo "== 1. Upstream fixture, tagged to mirror what's really installed (git TAGs -- 1.0.1/2.0.1 are the real CI-clean tags for internal policy versions 1.0.0/2.0.0, issue 08) =="
+echo "== 1. Upstream fixture, tagged to mirror what's really installed (git TAGs -- 1.0.3/2.0.3 are the real CI-clean tags for internal policy versions 1.0.0/2.0.0, issue 08) =="
 UPSTREAM="$(pwd)/$WORK/upstream"
 mkdir -p "$UPSTREAM"
 git -C "$UPSTREAM" init -q -b main
 git -C "$UPSTREAM" config user.email test@example.com
 git -C "$UPSTREAM" config user.name test
 declare -A SHA
-for v in 1.0.1 2.0.1 2.1.1; do
+for v in 1.0.3 2.0.3 2.2.0; do
   echo "$v" > "$UPSTREAM/VERSION"
   git -C "$UPSTREAM" add . && git -C "$UPSTREAM" commit -q -m "$v"
   git -C "$UPSTREAM" tag -a "$v" -m "$v"
@@ -38,18 +38,18 @@ git -C "$FLEET" init -q -b main
 git -C "$FLEET" config user.email test@example.com
 git -C "$FLEET" config user.name test
 sed \
-  -e "s/95a0576f04837b599b5cfbf1fae6908728197fc6/${SHA[1.0.1]}/" \
-  -e "s/e505587b1f8ab674b6147a8c955f468b49fa9ab4/${SHA[2.0.1]}/" \
-  -e "s/95579dd567b2c0e490ce56aeb0504290085651f6/${SHA[2.1.1]}/" \
+  -e "s/66730c2415791135ef90b43cf9868e7a26043d08/${SHA[1.0.3]}/" \
+  -e "s/1c2a3728aa885d07d440d2ac5da981adbb40732c/${SHA[2.0.3]}/" \
+  -e "s/6ad22ca85a444b289493725b178666f2156c8b32/${SHA[2.2.0]}/" \
   clusters/cluster1/policy-versions.yaml > "$FLEET/clusters/cluster1/policy-versions.yaml"
 git -C "$FLEET" add . && git -C "$FLEET" commit -q -m "pin policy versions"
 
-echo "== 3. A new upstream tag (2.1.2) lands -- the 2.1.1 element is now behind =="
-echo "2.1.2" > "$UPSTREAM/VERSION"
-git -C "$UPSTREAM" add . && git -C "$UPSTREAM" commit -q -m 2.1.2
-git -C "$UPSTREAM" tag -a 2.1.2 -m 2.1.2
-SHA_212=$(git -C "$UPSTREAM" rev-parse 2.1.2)
-echo "   2.1.2 = $SHA_212"
+echo "== 3. A new upstream tag (2.2.1) lands -- the 2.2.0 element is now behind =="
+echo "2.2.1" > "$UPSTREAM/VERSION"
+git -C "$UPSTREAM" add . && git -C "$UPSTREAM" commit -q -m 2.2.1
+git -C "$UPSTREAM" tag -a 2.2.1 -m 2.2.1
+SHA_212=$(git -C "$UPSTREAM" rev-parse 2.2.1)
+echo "   2.2.1 = $SHA_212"
 
 echo "== 4. renovate.json, depName pointed at the local fixture =="
 sed "s#https://github.com/policy-as-versioned-flux/policy#file://$UPSTREAM#" renovate.json > "$WORK/renovate-config.json"
@@ -62,9 +62,9 @@ echo "== 5. Renovate dry run (platform=local -- preview only, writes nothing) ==
 ) > "$WORK/renovate.log" 2>&1 || { echo "renovate run failed:"; tail -80 "$WORK/renovate.log"; exit 1; }
 
 echo "== 6. Verdict: exactly 3 deps found (one per array element, each keeping its own current pin) =="
-python3 - "$WORK/renovate.log" "${SHA[1.0.1]}" "${SHA[2.0.1]}" "${SHA[2.1.1]}" "$SHA_212" <<'PY'
+python3 - "$WORK/renovate.log" "${SHA[1.0.3]}" "${SHA[2.0.3]}" "${SHA[2.2.0]}" "$SHA_212" <<'PY'
 import json, sys
-log, sha_101, sha_201, sha_211, sha_212 = sys.argv[1:6]
+log, sha_103, sha_203, sha_220, sha_221 = sys.argv[1:6]
 text = open(log).read()
 i = text.index("packageFiles with updates")
 start = text.index("{", i)
@@ -82,14 +82,14 @@ by_current = {d["currentValue"]: d for d in deps}
 print(f"   found {len(deps)} deps (want 3): {sorted(by_current)}")
 ok = ok and len(deps) == 3
 
-# All three see the same new tag 2.1.2 is available -- Renovate's git-refs +
+# All three see the same new tag 2.2.1 is available -- Renovate's git-refs +
 # semver versioning reports "a higher tag exists" per starting point, it has
 # no notion of "stay within your own major/minor lineage" unless configured
 # with a range constraint. That's the right behaviour for THIS design: the
 # PR is the unit of debate (never automerged, ADR-0002) -- a human decides
-# whether "1.0.1 has 2.1.2 available" means retire 1.0.x, add a new array
+# whether "1.0.3 has 2.2.1 available" means retire 1.0.x, add a new array
 # element, or reject the PR outright. Renovate's job is only to surface it.
-expect = {"1.0.1": sha_101, "2.0.1": sha_201, "2.1.1": sha_211}
+expect = {"1.0.3": sha_103, "2.0.3": sha_203, "2.2.0": sha_220}
 for cur, want_digest in expect.items():
     d = by_current.get(cur)
     if d is None:
@@ -97,7 +97,7 @@ for cur, want_digest in expect.items():
     got_digest = d["currentDigest"]
     has_update = bool(d.get("updates"))
     new_value = d["updates"][0]["newValue"] if has_update else None
-    good = got_digest == want_digest and has_update and new_value == "2.1.2"
+    good = got_digest == want_digest and has_update and new_value == "2.2.1"
     ok = ok and good
     print(f"   {cur}@{got_digest[:8]} -> {new_value}  {'OK' if good else 'FAIL'}")
 

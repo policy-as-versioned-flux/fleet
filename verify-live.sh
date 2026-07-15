@@ -4,8 +4,9 @@
 # policy repo's own verify-live.sh (which proves the same mechanism in
 # isolation) by proving it end-to-end through the real Flux-reconciled
 # fleet: a compliant labelled workload admits, a gate violation is refused,
-# a lane-keeper violation admits but is reported, and an unlabelled
-# workload is untouched.
+# a lane-keeper violation admits but is reported, and (issue 09, updated
+# from this ticket's original "untouched" expectation now that the orphan
+# guard is live) an unlabelled workload is refused too.
 set -euo pipefail
 
 cleanup() {
@@ -61,8 +62,8 @@ done
 $reported || { echo "FAIL: no PolicyReport fail entry for live-audit-fail"; exit 1; }
 echo "OK: admitted and reported"
 
-echo "== Unlabelled workload: untouched by the versioned policies =="
-kubectl apply -f - >/dev/null <<'EOF'
+echo "== Unlabelled workload: refused by the orphan guard (issue 09) =="
+if kubectl apply -f - >/dev/null 2>&1 <<'EOF'
 apiVersion: v1
 kind: Pod
 metadata:
@@ -73,5 +74,7 @@ spec:
     - name: app
       image: nginx:latest
 EOF
-kubectl get pod live-unlabelled >/dev/null || { echo "FAIL: unlabelled pod was blocked"; exit 1; }
-echo "OK: admitted (orphan guard, which would catch this, lands in a later issue)"
+then
+  echo "FAIL: orphan guard admitted an unlabelled pod"; exit 1
+fi
+echo "OK: admission refused"
