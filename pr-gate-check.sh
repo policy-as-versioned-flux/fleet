@@ -47,7 +47,9 @@ for i in $(seq 0 $((count - 1))); do
   version=$(jq -r '.version' <<<"$entry")
   tag=$(jq -r '.tag' <<<"$entry")
   commit=$(jq -r '.commit' <<<"$entry")
-  policies=$(jq -r '.policies[]' <<<"$entry")
+  # issue 19: policies[] items are {name, plane} objects, not bare strings --
+  # plane picks the fetch path (workloads/kyverno/<name> vs cloud/<name>).
+  policy_rows=$(jq -r '.policies[] | "\(.name)\t\(.plane)"' <<<"$entry")
 
   echo "############ $version (tag v$tag) ############"
   co="$WORK/policy-$version"
@@ -81,10 +83,13 @@ for i in $(seq 0 $((count - 1))); do
   echo "  OK: fixtures green"
 
   echo "== flux build --dry-run: what merging this PR adopts =="
-  for p in $policies; do
+  while IFS=$'\t' read -r p plane; do
+    [ -z "$p" ] && continue
+    relpath="workloads/kyverno/$p"
+    [ "$plane" = "cloud" ] && relpath="cloud/$p"
     out="$WORK/build-$version-$p.yaml"
     flux build kustomization "policy-$version-$p" \
-      --path="$co/workloads/kyverno/$p" \
+      --path="$co/$relpath" \
       --kustomization-file=<(cat <<EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -93,7 +98,7 @@ metadata:
   namespace: flux-system
 spec:
   sourceRef: {kind: GitRepository, name: policy-$version}
-  path: ./workloads/kyverno/$p
+  path: ./$relpath
 EOF
 ) --dry-run > "$out" 2>"$WORK/build-$version-$p.err" || { echo "FAIL: flux build $version/$p"; cat "$WORK/build-$version-$p.err"; fail=1; continue; }
     old_commit=$(jq -r --arg v "$version" '.[] | select(.version==$v) | .commit' <<<"$(yq -o=json '.spec.inputs[0].versions' "$WORK/base.yaml")")
@@ -104,7 +109,7 @@ EOF
     else
       echo "  -- $version changed (base had $old_commit) --"
     fi
-  done
+  done <<<"$policy_rows"
 done
 
 [ "$fail" -eq 0 ] && echo "== PR gate: PASS ==" || { echo "== PR gate: FAIL =="; exit 1; }
