@@ -64,6 +64,13 @@ infrastructure/crossplane*/    issue 18: Crossplane v2 core + AWS provider-famil
                                 carry the same dependsOn once unblocked.
 verify-crossplane.sh           proves issue 18: CRDs Established, the ordering held, and the
                                 sample RDS CR sits unreconciled (no auth on the critical path)
+pr-gate-check.sh                issue 12: gitsign verify-tag + tag-resolves-to-commit +
+                                kyverno test + flux build --dry-run for every array entry in
+                                a bump PR. Runs identically in CI
+                                (.github/workflows/pr-gate.yml, on PRs touching clusters/**,
+                                required by a branch ruleset before merge) and locally
+                                (./pr-gate-check.sh <base-ref> <head-ref>) -- no real PR needed
+                                to exercise it, only the {tag, commit} pairs it reads
 ```
 
 ## Run it
@@ -75,6 +82,7 @@ verify-crossplane.sh           proves issue 18: CRDs Established, the ordering h
 ./verify-orphan-guard.sh # orphan guard claims against what's live
 ./verify-renovate.sh     # Renovate customManager against a fixture -- no cluster needed
 ./verify-crossplane.sh   # Crossplane CRD install + ordering claims against what's live
+./pr-gate-check.sh HEAD~1 HEAD  # PR gate against any two refs -- no cluster, no real PR needed
 ./down.sh                # tear down; ./up.sh again recreates cleanly
 ```
 
