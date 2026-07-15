@@ -1,0 +1,32 @@
+# Issue 10: a second, independent cluster profile from the SAME fleet repo,
+# proving per-cluster narrowing -- cluster2 only ever installs `>=2.0.0`
+# (see policy-versions.yaml), cluster1 installs everything. Same
+# self-referential pattern as cluster1/bootstrap.yaml, minimal on purpose:
+# just Kyverno, nothing this ticket's retirement/narrowing story doesn't need
+# (no monitoring/crossplane/notifications -- those are cluster-agnostic
+# concerns already proven once on cluster1, not what issue 10 is about).
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: fleet
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  url: https://github.com/policy-as-versioned-flux/fleet
+  ref:
+    branch: main
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kyverno
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./infrastructure/kyverno
+  prune: true
+  wait: true
+  timeout: 3m0s
