@@ -45,3 +45,101 @@ spec:
   prune: true
   wait: true
   timeout: 3m0s
+---
+# Policy Reporter -> Prometheus + Grafana (issue 14): dependsOn kyverno
+# because Policy Reporter watches Kyverno's PolicyReports -- a logical
+# ordering, not a hard API-level requirement (it would just show empty
+# metrics if it started first).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: monitoring
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./infrastructure/monitoring
+  prune: true
+  wait: true
+  timeout: 5m0s
+  dependsOn:
+    - name: kyverno
+---
+# Issue 18: Crossplane v2 core -- Established gate for the two
+# Kustomizations below is this HelmRelease reaching Ready.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: crossplane
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./infrastructure/crossplane
+  prune: true
+  wait: true
+  timeout: 3m0s
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      name: crossplane
+      namespace: crossplane-system
+---
+# Issue 18: AWS provider-family packages (S3, RDS). Won't even attempt to
+# apply until "crossplane" above is Ready (core installed), and this
+# Kustomization itself isn't Ready until both Providers report Healthy +
+# Installed -- which Crossplane only sets once their packaged CRDs
+# (s3.aws.m.upbound.io, rds.aws.m.upbound.io) are Established. That's the
+# CRDs-Established gate the sample CR below (and issue 19's real cloud
+# policies, once unblocked) depend on.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: crossplane-providers
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./infrastructure/crossplane-providers
+  prune: true
+  wait: true
+  timeout: 5m0s
+  dependsOn:
+    - name: crossplane
+  healthChecks:
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Provider
+      name: provider-aws-s3
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Provider
+      name: provider-aws-rds
+---
+# Issue 18's ordering proof: this Kustomization applies a real managed
+# resource targeting instances.rds.aws.m.upbound.io. Without
+# crossplane-providers being Established first, applying it would fail
+# (the CRD wouldn't exist yet) -- dependsOn is what makes that impossible
+# to hit, on a fresh bring-up as much as any later reconcile. Issue 19's
+# real cloud-policy Kustomizations (blocked on issue 08) will carry the
+# same dependsOn once unblocked.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: crossplane-sample
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./infrastructure/crossplane-sample
+  prune: true
+  wait: true
+  timeout: 3m0s
+  dependsOn:
+    - name: crossplane-providers

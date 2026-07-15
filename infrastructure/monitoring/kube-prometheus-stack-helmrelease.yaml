@@ -1,0 +1,133 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  interval: 1h
+  releaseName: kube-prometheus-stack
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      # Pinned (issue 14, same governed-dependency posture as Kyverno,
+      # ADR-0003): the observability stack is bumped via the same reviewed
+      # Renovate PR path as everything else.
+      version: "87.16.0"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: monitoring
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    # Alertmanager isn't used here -- notification/alert (issue 16) is Flux's
+    # own notification-controller broadcasting revision changes, a different
+    # mechanism for a different signal (GitOps reconcile events, not metric
+    # alert rules). Disabled to keep the KiND footprint lean, not because
+    # it's the wrong tool for issue 16.
+    alertmanager:
+      enabled: false
+    prometheus:
+      prometheusSpec:
+        retention: 6h
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+        # No PersistentVolume: this is ephemeral demo infra (PRD "Proof =
+        # KiND, free & reproducible") -- KiND's local-path-provisioner would
+        # work fine if this ever needs to survive a Prometheus restart, but
+        # nothing here depends on retained history across ./down.sh.
+        storageSpec: {}
+    grafana:
+      # Sidecar dashboard auto-discovery (default-on in this chart) is what
+      # lets Policy Reporter's own pre-built dashboards (ConfigMaps labelled
+      # grafana_dashboard: "1") show up with zero hand-authored Grafana JSON
+      # -- see policy-reporter-helmrelease.yaml.
+      resources:
+        requests: {cpu: 50m, memory: 128Mi}
+      adminPassword: admin
+    kubeControllerManager: {enabled: false}
+    kubeEtcd: {enabled: false}
+    kubeScheduler: {enabled: false}
+    kubeProxy: {enabled: false}
+    # Issue 15 / ADR-0008: Flux doesn't export its own resource state as
+    # Prometheus metrics -- this is the flux2-monitoring-example pattern
+    # (github.com/fluxcd/flux2-monitoring-example) for kube-state-metrics's
+    # customResourceState feature, trimmed to the three Flux kinds this repo
+    # actually uses (GitRepository, Kustomization, HelmRelease) rather than
+    # the upstream example's full 12-kind coverage (Bucket/HelmChart/
+    # notification+image-automation types this project has none of). No
+    # `--custom-resource-state-only` flag: kube-state-metrics keeps emitting
+    # its normal built-in metrics (pods/deployments/etc, feeding the stock
+    # kube-prometheus-stack dashboards) alongside these.
+    kube-state-metrics:
+      rbac:
+        extraRules:
+          - apiGroups: [source.toolkit.fluxcd.io, kustomize.toolkit.fluxcd.io, helm.toolkit.fluxcd.io]
+            resources: [gitrepositories, kustomizations, helmreleases]
+            verbs: [list, watch]
+      customResourceState:
+        enabled: true
+        config:
+          spec:
+            resources:
+              - groupVersionKind:
+                  group: source.toolkit.fluxcd.io
+                  version: v1
+                  kind: GitRepository
+                metricNamePrefix: gotk
+                metrics:
+                  - name: resource_info
+                    help: "The current state of a Flux GitRepository resource."
+                    each:
+                      type: Info
+                      info:
+                        labelsFromPath:
+                          name: [metadata, name]
+                    labelsFromPath:
+                      exported_namespace: [metadata, namespace]
+                      ready: [status, conditions, "[type=Ready]", status]
+                      suspended: [spec, suspend]
+                      revision: [status, artifact, revision]
+                      url: [spec, url]
+              - groupVersionKind:
+                  group: kustomize.toolkit.fluxcd.io
+                  version: v1
+                  kind: Kustomization
+                metricNamePrefix: gotk
+                metrics:
+                  - name: resource_info
+                    help: "The current state of a Flux Kustomization resource."
+                    each:
+                      type: Info
+                      info:
+                        labelsFromPath:
+                          name: [metadata, name]
+                    labelsFromPath:
+                      exported_namespace: [metadata, namespace]
+                      ready: [status, conditions, "[type=Ready]", status]
+                      suspended: [spec, suspend]
+                      revision: [status, lastAppliedRevision]
+                      source_name: [spec, sourceRef, name]
+              - groupVersionKind:
+                  group: helm.toolkit.fluxcd.io
+                  version: v2
+                  kind: HelmRelease
+                metricNamePrefix: gotk
+                metrics:
+                  - name: resource_info
+                    help: "The current state of a Flux HelmRelease resource."
+                    each:
+                      type: Info
+                      info:
+                        labelsFromPath:
+                          name: [metadata, name]
+                    labelsFromPath:
+                      exported_namespace: [metadata, namespace]
+                      ready: [status, conditions, "[type=Ready]", status]
+                      suspended: [spec, suspend]
+                      revision: [status, history, "0", chartVersion]
+                      chart_name: [status, history, "0", chartName]
