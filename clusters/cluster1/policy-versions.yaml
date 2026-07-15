@@ -55,15 +55,26 @@ spec:
         # for the two older lines; v2.2.0 is a real content release (also
         # ships the cloud plane, not yet wired in here -- see issue 19).
         #
-        # v1.0.2/v2.0.2 (skipped, not v1.0.3/v2.0.3 by coincidence): their
-        # underlying commits were accidentally SSH-signed (a shell default),
-        # which Flux's go-git library fails to resolve during its
-        # shallow-fetch-by-tag path ("unable to resolve commit object ...
-        # object not found" -- confirmed plain `git clone --branch` handles
-        # the same tag fine, so this is a go-git-specific limitation, not a
-        # broken tag). v1.0.3/v2.0.3 carry identical content with an
-        # unsigned commit; the tags themselves are still fully
-        # gitsign-signed. Same immutable-tag-stays pattern as v1.0.0/v2.0.0.
+        # v1.0.2/v2.0.2 (skipped, not v1.0.3/v2.0.3 by coincidence): Flux's
+        # go-git failed to resolve their commits during shallow-fetch-by-tag
+        # ("unable to resolve commit object ... object not found") even
+        # though `git clone --branch` resolved the identical tag fine.
+        # Root-caused live, confirmed by direct test (deleted the fix,
+        # watched it break again, restored it, watched it recover): go-git's
+        # shallow-fetch-by-tag needs the commit reachable from a branch under
+        # refs/heads, not just the tag itself -- a documented Flux/go-git
+        # limitation (fluxcd/source-controller#1166), not specific to these
+        # tags. v1.0.2/v2.0.2's commits, made via `git worktree` from an
+        # older tag's detached HEAD, were never on any branch. Fixed two
+        # ways at once: v1.0.3/v2.0.3 carry the same content with a fresh
+        # unsigned commit (the SSH-signed original was a secondary, now-moot
+        # difference) AND a permanent branch ref
+        # (policy repo: release-pins/v1.0.3, release-pins/v2.0.3) keeps each
+        # commit branch-reachable for Flux's benefit -- deleting either
+        # branch breaks resolution again, confirmed live, so they are
+        # load-bearing infrastructure, not cleanup candidates. Tags
+        # themselves are still fully gitsign-signed. Same
+        # immutable-tag-stays pattern as v1.0.0/v2.0.0.
         - version: "1.0.0"
           tag: "1.0.3"
           commit: "66730c2415791135ef90b43cf9868e7a26043d08"
