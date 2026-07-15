@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - helmrepository.yaml
+  - kube-prometheus-stack-helmrelease.yaml
+  - policy-reporter-helmrelease.yaml
+# Issue 15: the combined Flux-revision + PolicyReports dashboard, as a
+# ConfigMap labelled for kube-prometheus-stack's Grafana sidecar to
+# auto-discover -- same mechanism Policy Reporter's own dashboards use
+# (policy-reporter-helmrelease.yaml), not a separate bespoke import step.
+configMapGenerator:
+  - name: flux-policy-dashboard
+    namespace: monitoring
+    files:
+      - dashboards/flux-policy-dashboard.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+generatorOptions:
+  disableNameSuffixHash: true
