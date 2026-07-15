@@ -1,0 +1,55 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: policy-reporter
+  namespace: monitoring
+spec:
+  interval: 1h
+  releaseName: policy-reporter
+  chart:
+    spec:
+      chart: policy-reporter
+      # Pinned, same governed-dependency posture as Kyverno/the observability
+      # stack (ADR-0003, issue 14).
+      version: "3.8.1"
+      sourceRef:
+        kind: HelmRepository
+        name: policy-reporter
+        namespace: monitoring
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    metrics:
+      # Turns PolicyReport results (both planes, both engines' worth --
+      # background scans and admission results) into Prometheus metrics,
+      # labelled by policy/rule/result/severity -- the "is it actually
+      # passing?" layer of measurable (ADR-0008). "detailed" mode keeps the
+      # policy-version suffix (baked into each ValidatingPolicy's nameSuffix,
+      # PRD §6.4) as a queryable label, not collapsed away.
+      enabled: true
+      mode: detailed
+    monitoring:
+      # Prometheus Operator ServiceMonitor (kube-prometheus-stack ships the
+      # CRD + operator that reconciles it) -- native scrape-config wiring,
+      # not a hand-rolled Prometheus scrape_configs edit.
+      enabled: true
+      serviceMonitor:
+        # kube-prometheus-stack's Prometheus CR only selects ServiceMonitors
+        # carrying this label by default (serviceMonitorSelector.matchLabels
+        # in the chart's own Prometheus resource) -- without it the
+        # ServiceMonitor exists but Prometheus silently never scrapes it.
+        labels:
+          release: kube-prometheus-stack
+      grafana:
+        # Ships Policy Reporter's own pre-built dashboards (Overview,
+        # PolicyReport Details, ClusterPolicyReport Details) as ConfigMaps
+        # labelled for kube-prometheus-stack's Grafana sidecar to
+        # auto-discover -- issue 14's "pass/fail per policy per version"
+        # panel is these, not a hand-authored dashboard JSON (no bespoke
+        # tooling: use what the engine's own ecosystem already ships).
+        dashboards:
+          enabled: true

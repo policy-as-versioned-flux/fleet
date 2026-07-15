@@ -28,6 +28,27 @@ spec:
   wait: true
   timeout: 3m0s
 ---
+# Policy Reporter -> Prometheus + Grafana (issue 14): dependsOn kyverno
+# because Policy Reporter watches Kyverno's PolicyReports -- a logical
+# ordering, not a hard API-level requirement (it would just show empty
+# metrics if it started first).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: monitoring
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./infrastructure/monitoring
+  prune: true
+  wait: true
+  timeout: 5m0s
+  dependsOn:
+    - name: kyverno
+---
 # Issue 18: Crossplane v2 core -- Established gate for the two
 # Kustomizations below is this HelmRelease reaching Ready.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
