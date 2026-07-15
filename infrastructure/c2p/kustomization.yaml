@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - rbac.yaml
+  - cronjob.yaml
+  - cloud-exemplars.yaml
+  - oscal-file-server.yaml
+
+configMapGenerator:
+  - name: c2p-run-script
+    namespace: monitoring
+    files:
+      - run.sh
+  - name: c2p-component-definition
+    namespace: monitoring
+    files:
+      - component-definition.json
+
+generatorOptions:
+  disableNameSuffixHash: true

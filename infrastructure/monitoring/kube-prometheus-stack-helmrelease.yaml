@@ -49,6 +49,24 @@ spec:
       resources:
         requests: {cpu: 50m, memory: 128Mi}
       adminPassword: admin
+      # Issue 21: infinity is first-party-listed on grafana.com/plugins (not
+      # a bespoke exporter) -- reads the OSCAL panel from the in-cluster
+      # oscal-file-server (issue 21's CronJob output, no auth needed, see
+      # infrastructure/c2p/) and the Renovate PR-state panel directly from
+      # GitHub's public REST API, unauthenticated (the org/repos are public;
+      # this avoids provisioning a real GitHub token/credential for a KiND
+      # demo -- not the literal "github" datasource plugin ticket 21's text
+      # names, but the same outcome: a first-party datasource, no bespoke
+      # exporter, real PR data).
+      plugins:
+        - yesoreyeram-infinity-datasource
+      additionalDataSources:
+        - name: infinity
+          type: yesoreyeram-infinity-datasource
+          access: proxy
+          isDefault: false
+          jsonData:
+            datasource_mode: advanced
     kubeControllerManager: {enabled: false}
     kubeEtcd: {enabled: false}
     kubeScheduler: {enabled: false}

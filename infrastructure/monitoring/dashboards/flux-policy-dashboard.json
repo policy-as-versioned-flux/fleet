@@ -37,6 +37,13 @@
         "label": "Prometheus",
         "query": "prometheus",
         "current": {}
+      },
+      {
+        "name": "DS_INFINITY",
+        "type": "datasource",
+        "label": "Infinity",
+        "query": "yesoreyeram-infinity-datasource",
+        "current": {}
       }
     ]
   },
@@ -81,6 +88,56 @@
           "expr": "sum by (status) (policy_report_result{policy=~\".*$policy_version\"})",
           "legendFormat": "{{status}}",
           "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Are controls satisfied? (issue 21 -- OSCAL assessment-results, cloud plane, live from the C2P CronJob)",
+      "description": "Empty table = every mapped NIST control (sc-28, cp-10) is currently satisfied. A row here names a control that is NOT satisfied right now, sourced from the real, live cluster's PolicyReports every 15 minutes (infrastructure/c2p/) -- not a spike.",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 18},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+      "targets": [
+        {
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://oscal-file-server.monitoring.svc.cluster.local/assessment-results.json",
+          "url_options": {"method": "GET"},
+          "root_selector": "assessment-results.results[0].findings",
+          "columns": [
+            {"selector": "target.target-id", "text": "control", "type": "string"},
+            {"selector": "target.status.state", "text": "state", "type": "string"},
+            {"selector": "target.status.reason", "text": "reason", "type": "string"}
+          ],
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Adoption velocity (issue 21 -- Renovate PR state on this fleet repo, live from GitHub's public API)",
+      "description": "Real PRs opened/merged against this repo -- the same bump PRs issue 11's Renovate customManager opens. Not the literal 'github' Grafana plugin (would need a provisioned GitHub token) -- infinity querying GitHub's public REST API unauthenticated, same first-party-datasource / no-bespoke-exporter outcome, documented honestly.",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 26},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+      "targets": [
+        {
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://api.github.com/repos/policy-as-versioned-flux/fleet/pulls?state=all&per_page=20&sort=created&direction=desc",
+          "url_options": {"method": "GET"},
+          "root_selector": "",
+          "columns": [
+            {"selector": "number", "text": "PR", "type": "number"},
+            {"selector": "title", "text": "title", "type": "string"},
+            {"selector": "state", "text": "state", "type": "string"},
+            {"selector": "merged_at", "text": "merged_at", "type": "timestamp"},
+            {"selector": "created_at", "text": "created_at", "type": "timestamp"}
+          ],
           "refId": "A"
         }
       ]
