@@ -1,0 +1,23 @@
+# Issue 19: Kyverno's background/reports controllers get no access to
+# arbitrary CRDs by default -- without this they can't list the Crossplane
+# CRs, so the cloud-plane ValidatingPolicies would never reach Ready
+# (RBACPermissionsGranted stays False) and would background-scan-report
+# zero results (a silent false-negative, not an error). Kyverno's
+# documented extension point is an aggregated ClusterRole carrying these
+# two labels. Rides along with the provider-family install (this
+# Kustomization), same rationale as the spikes/c2p-real-job proof that
+# found this exact gap first.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:cloud-cr-view
+  labels:
+    rbac.kyverno.io/aggregate-to-background-controller: "true"
+    rbac.kyverno.io/aggregate-to-reports-controller: "true"
+rules:
+  - apiGroups: ["s3.aws.m.upbound.io"]
+    resources: ["bucketserversideencryptionconfigurations"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rds.aws.m.upbound.io"]
+    resources: ["instances"]
+    verbs: ["get", "list", "watch"]
