@@ -1,0 +1,90 @@
+name: governance checkbox follow-through
+
+# Ticket 13 (real-estate epic): the missing follow-through on the
+# governance agent's decision-framing issues (ADR-0007). When a reviewer
+# ticks one of the decision checkboxes on an agent-governance-review
+# issue, this reacts with a label + an acknowledging comment -- comment
+# and label only, never a write to policy content. Preserved by
+# construction: this workflow's permissions grant issues:write only, no
+# contents/pull-requests access -- the same enforcement style the
+# governance-agent's demonstrator uses (SPEC.md §5).
+#
+# Checkbox text differs across issue templates (the CVE-review
+# demonstrator's "Yes/No/Not sure -- defend/change/discuss" vs the
+# sunset-escalator's "No/Yes/Not sure -- proceed/reschedule/discuss") --
+# matched by substring against the checked line's own text, not position,
+# since the same three outcomes (defend as-is / change needed / discuss)
+# are phrased differently by design in each template.
+
+on:
+  issues:
+    types: [edited]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  react:
+    if: contains(github.event.issue.labels.*.name, 'agent-governance-review')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diff old vs new body, find the newly-checked box, label + comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const oldBody = context.payload.changes?.body?.from || '';
+            const newBody = context.payload.issue.body || '';
+
+            const checkedLines = (body) => (body.match(/^- \[x\] .+$/gim) || []).map(l => l.trim());
+            const before = new Set(checkedLines(oldBody));
+            const after = checkedLines(newBody);
+            const newlyChecked = after.filter(l => !before.has(l));
+
+            if (newlyChecked.length === 0) {
+              console.log('No newly-checked box in this edit -- nothing to do.');
+              return;
+            }
+
+            // Outcome the checked text implies, matched by substring --
+            // not position, since templates phrase the same three
+            // outcomes differently.
+            const rules = [
+              { pattern: /closing with a note|retirement can proceed as scheduled/i, label: 'awaiting-defence-pr',
+                comment: 'Recorded: **defending as-is**. This needs a PR bumping `last-reviewed` (or, for a scheduled item, no PR at all -- the schedule stands). Tracked with `awaiting-defence-pr`.' },
+              { pattern: /opening a pr to change it|is a reviewed pr, same as any other array change/i, label: 'awaiting-change-pr',
+                comment: 'Recorded: **a change is needed**. Tracked with `awaiting-change-pr` until the reviewed PR lands.' },
+              { pattern: /not sure -- needs discussion/i, label: 'needs-discussion',
+                comment: 'Recorded: **needs discussion**. Tracked with `needs-discussion` -- no PR expected until that resolves.' },
+            ];
+
+            const matched = newlyChecked
+              .map(line => rules.find(r => r.pattern.test(line)))
+              .find(Boolean);
+
+            if (!matched) {
+              console.log('Newly-checked box did not match a known decision pattern:', newlyChecked);
+              return;
+            }
+
+            const stateLabels = ['awaiting-defence-pr', 'awaiting-change-pr', 'needs-discussion'];
+            const current = context.payload.issue.labels.map(l => l.name);
+            const toRemove = stateLabels.filter(l => l !== matched.label && current.includes(l));
+
+            for (const label of toRemove) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, name: label,
+              }).catch(() => {}); // already absent -- fine
+            }
+            if (!current.includes(matched.label)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, labels: [matched.label],
+              });
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: matched.comment,
+            });

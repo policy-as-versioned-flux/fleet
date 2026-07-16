@@ -1,0 +1,39 @@
+name: weekly governance nag
+
+# Ticket 13 (real-estate epic): a timed nudge to humans, never a timed
+# enforcement change -- ADR-0006 forbids the latter, not the former (see
+# ADR-0010's explicit statement of that boundary). Comments on any open
+# agent-governance-review issue carrying awaiting-defence-pr or
+# awaiting-change-pr (a decision was recorded, a PR is expected) that's
+# sat that way a while -- needs-discussion is deliberately excluded, no
+# PR is expected there yet.
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Monday 09:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+jobs:
+  nag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on checked-but-unactioned issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            for (const label of ['awaiting-defence-pr', 'awaiting-change-pr']) {
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner, repo: context.repo.repo,
+                state: 'open', labels: label,
+              });
+              for (const issue of issues) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `Weekly nag: this issue is still \`${label}\` -- the recorded decision hasn't produced a PR yet. Not a deadline, just a nudge (ADR-0006/ADR-0010: timed reminders to humans, never timed enforcement).`,
+                });
+              }
+            }
