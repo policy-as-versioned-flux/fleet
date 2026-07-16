@@ -69,7 +69,7 @@
           "id": "joinByField",
           "options": {
             "byField": "team",
-            "mode": "outer"
+            "mode": "inner"
           }
         }
       ]
