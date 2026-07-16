@@ -49,10 +49,45 @@
   },
   "panels": [
     {
+      "id": 5,
+      "title": "Supported policy versions on this cluster",
+      "description": "One box per policy version currently installed and Ready via a Flux GitRepository -- the explicit answer to \"what does this cluster support right now\", live-verified, not inferred from the revision table below.",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {
+          "expr": "count by (name) (gotk_resource_info{customresource_kind=\"GitRepository\", name=~\"policy-.*\", ready=\"True\"})",
+          "legendFormat": "{{name}}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "name",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "fixed", "fixedColor": "green"}}
+      }
+    },
+    {
+      "id": 6,
+      "title": "Admission-only semantics",
+      "type": "text",
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 4},
+      "options": {
+        "mode": "markdown",
+        "content": "**Retirement never evicts.** A retired version's workloads keep running until their next recreation -- only then does the orphan guard refuse them. Governance debt becomes visible at the next churn, not as a retroactive mass eviction. See the fleet repo's README for the full statement."
+      }
+    },
+    {
       "id": 1,
       "title": "Which version, where? (Flux GitRepository + Kustomization revisions)",
       "type": "table",
-      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 0},
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 8},
       "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
       "targets": [
         {
@@ -81,7 +116,7 @@
       "id": 2,
       "title": "Is it actually passing? (PolicyReport results for $policy_version)",
       "type": "barchart",
-      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 9},
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 17},
       "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
       "targets": [
         {
@@ -97,7 +132,7 @@
       "title": "Are controls satisfied? (issue 21 -- OSCAL assessment-results, cloud plane, live from the C2P CronJob)",
       "description": "Empty table = every mapped NIST control (sc-28, cp-10) is currently satisfied. A row here names a control that is NOT satisfied right now, sourced from the real, live cluster's PolicyReports every 15 minutes (infrastructure/c2p/) -- not a spike.",
       "type": "table",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 18},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 26},
       "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
       "targets": [
         {
@@ -122,7 +157,7 @@
       "title": "Adoption velocity (issue 21 -- Renovate PR state on this fleet repo, live from GitHub's public API)",
       "description": "Real PRs opened/merged against this repo -- the same bump PRs issue 11's Renovate customManager opens. Not the literal 'github' Grafana plugin (would need a provisioned GitHub token) -- infinity querying GitHub's public REST API unauthenticated, same first-party-datasource / no-bespoke-exporter outcome, documented honestly.",
       "type": "table",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 26},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 34},
       "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
       "targets": [
         {

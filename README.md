@@ -31,6 +31,24 @@ tag; see `clusters/cluster1/policy-versions.yaml`'s comment for the full
 story and why `policy`'s `release-pins/v1.0.3`/`release-pins/v2.0.3`
 branches are load-bearing, not cleanup candidates.)
 
+## Admission-only semantics
+
+**Retirement never evicts.** Removing a version from `policy-versions.yaml`
+(or letting a `sunset:` date's retirement PR merge) stops that version's
+policies from being installed -- it does not touch any workload already
+running under it. A retired-version workload keeps running, unaffected,
+right up until its *next recreation* (a rollout, a manual delete, a node
+eviction -- anything that re-submits it to admission). At that moment the
+orphan guard (issue 09's deterministic Deny catch-all) refuses it, because
+no policy is left willing to opt it in. Governance debt is therefore always
+visible, but only *becomes* visible at the next churn, never as a
+retroactive mass eviction nobody asked for. This is a deliberate consequence
+of ADR-0003 (Kyverno admission-time enforcement, not a controller that
+reconciles existing objects) and ADR-0006 (no time-conditional policy
+state) -- see `verify-orphan-guard.sh`'s "pre-existing orphans reported not
+evicted" proof and `verify-retirement.sh` for the live version of this
+claim.
+
 ```
 flux-instance.yaml            FluxInstance -- pinned Flux 2.9.2, upstream-alpine variant
 infrastructure/kyverno/       Kyverno engine: Namespace + HelmRepository + HelmRelease

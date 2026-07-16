@@ -15,6 +15,9 @@
 #      needed) -- diffed against BASE_REF's build of the same entry (or "new
 #      entry" if BASE_REF doesn't have it) so a reviewer sees exactly what
 #      merging adopts.
+#   5. the rendered content's own mycompany.com/policy-version label equals
+#      the array's declared version -- rendered content, not the tag
+#      string, so CI-only-fix patches (version != tag by design) stay valid.
 #
 # Usage: ./pr-gate-check.sh <base-ref> <head-ref>
 set -euo pipefail
@@ -101,6 +104,16 @@ spec:
   path: ./$relpath
 EOF
 ) --dry-run > "$out" 2>"$WORK/build-$version-$p.err" || { echo "FAIL: flux build $version/$p"; cat "$WORK/build-$version-$p.err"; fail=1; continue; }
+
+    # flux build emits a trailing empty `---` doc after the single resource
+    # -- select only the first doc so yq doesn't also emit "null" for it.
+    rendered_version=$(yq -r 'select(di==0) | .metadata.labels."mycompany.com/policy-version"' "$out")
+    if [ "$rendered_version" != "$version" ]; then
+      echo "FAIL: $version/$p renders mycompany.com/policy-version=$rendered_version, array declares $version"
+      fail=1; continue
+    fi
+    echo "  OK: $p renders policy-version=$rendered_version, matches declared $version"
+
     old_commit=$(jq -r --arg v "$version" '.[] | select(.version==$v) | .commit' <<<"$(yq -o=json '.spec.inputs[0].versions' "$WORK/base.yaml")")
     if [ -z "$old_commit" ] || [ "$old_commit" = "null" ]; then
       echo "  -- new array element ($version), nothing to diff against --"
