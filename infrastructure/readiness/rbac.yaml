@@ -1,0 +1,60 @@
+# Ticket 10 (real-estate): the readiness collector needs to read every
+# workload carrying mycompany.com/policy-version cluster-wide (get/list
+# only) and write exactly one ConfigMap per candidate version in
+# monitoring for the estate dashboard to read. No other access -- same
+# read-only-plus-one-ConfigMap posture as c2p-collector.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: readiness-collector
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: readiness-collector-pods
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: readiness-collector-pods
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: readiness-collector-pods
+subjects:
+  - kind: ServiceAccount
+    name: readiness-collector
+    namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: readiness-collector-configmap
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["readiness-2.2.0"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: readiness-collector-configmap
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: readiness-collector-configmap
+subjects:
+  - kind: ServiceAccount
+    name: readiness-collector
+    namespace: monitoring

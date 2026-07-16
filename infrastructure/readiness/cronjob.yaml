@@ -1,0 +1,44 @@
+# Ticket 10 (real-estate): the CIO's forward question, answered on a
+# schedule -- "would the estate pass 2.2.0 [the leading version] today?"
+# Offline by construction (see the component's own README): kyverno apply
+# against a local workload dump, never kubectl apply. Zero effect on
+# admission or live PolicyReports.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: readiness-collector
+  namespace: monitoring
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: readiness-collector
+          restartPolicy: Never
+          containers:
+            - name: readiness-collector
+              image: ghcr.io/policy-as-versioned-flux/readiness-collector@sha256:b186b7082b378b1c30c58e9646369298eaeda7ef5f2761f5256e47f138470eb5 # v1.0.0
+              env:
+                - name: HOME
+                  value: /work
+                - name: WORK
+                  value: /work
+                - name: CANDIDATE_TAG
+                  value: "2.2.0"
+                - name: NAMESPACE
+                  value: monitoring
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: {drop: ["ALL"]}
+              resources:
+                requests: {cpu: 100m, memory: 128Mi}
+                limits: {memory: 512Mi}
+          volumes:
+            - name: work
+              emptyDir: {}
