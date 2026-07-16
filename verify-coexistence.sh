@@ -3,7 +3,9 @@
 # cluster currently has live (run ./up.sh first).
 set -euo pipefail
 
-echo "== three versions live side by side, collision-free (7 policies: 2+2+3) =="
+echo "== three versions live side by side, collision-free (9 policies: 2+2+5) =="
+# issue 19 added the two cloud-plane policies to 2.2.0 -- this list drifted
+# stale until noticed live while verifying ticket 07/08's app rewiring.
 got=$(kubectl get validatingpolicy -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | sort)
 want=$(cat <<'EOF' | sort
 orphan-guard
@@ -14,10 +16,12 @@ require-known-department-label-2.0.0
 require-department-label-2.2.0
 require-known-department-label-2.2.0
 require-owner-annotation-2.2.0
+require-rds-multi-az-2.2.0
+require-s3-bucket-encryption-2.2.0
 EOF
 )
 [ "$got" = "$want" ] || { echo "FAIL: expected exactly these ValidatingPolicies, got:"; echo "$got"; exit 1; }
-echo "OK: all 7 present, no name collisions"
+echo "OK: all 9 present, no name collisions"
 
 echo "== every per-version Kustomization dependsOn kyverno and waits =="
 for ks in $(kubectl -n flux-system get kustomization -l "fluxcd.controlplane.io/name=policy-versions" -o name); do
