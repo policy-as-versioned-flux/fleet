@@ -81,9 +81,18 @@ spec:
         # (issue 18's CRDs-Established gate) on top of the usual dependsOn:
         # kyverno. Only v2.2.0 ships cloud policies today; a version with no
         # cloud content just omits them, same as any other policy.
+        # ticket 09 (real-estate): `sunset` is this FLEET's adoption
+        # decision, not a property of the release (ADR-0010) -- purely
+        # data for tooling (governance-agent's sunset-escalator, the
+        # estate dashboard's countdown) to read; the ResourceSet template
+        # never references it, so it changes nothing about what installs.
+        # 1.0.0 is the laggard the roster was designed to expose; giving
+        # it a real sunset horizon is the honest version of "we know,
+        # we're on it" rather than leaving it open-ended forever.
         - version: "1.0.0"
           tag: "1.0.3"
           commit: "66730c2415791135ef90b43cf9868e7a26043d08"
+          sunset: "2026-08-15"
           policies:
             - name: require-department-label
               plane: workload
