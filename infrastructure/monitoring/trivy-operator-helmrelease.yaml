@@ -35,6 +35,14 @@ spec:
       # storageSpec (faithful-floor issue 14) -- KiND is free & reproducible,
       # nothing here needs to survive a ./down.sh.
       storageClassEnabled: false
+      # Chart default (500Mi limit) OOMKilled scanning ledger's shaded jar
+      # (DB download + Java jar analysis together) -- confirmed live via
+      # the operator's own reconciler logs (status.reason: OOMKilled).
+      # Same headroom-for-real-work lesson as the c2p-collector's own
+      # 512Mi->1536Mi fix (issue 21, faithful-floor).
+      resources:
+        requests: {cpu: 100m, memory: 100Mi}
+        limits: {cpu: 1, memory: 1Gi}
     serviceMonitor:
       enabled: true
       # kube-prometheus-stack's Prometheus CR only selects ServiceMonitors
