@@ -134,6 +134,42 @@
         "colorMode": "background",
         "graphMode": "none"
       }
+    },
+    {
+      "id": 4,
+      "title": "Open dependency-update PRs, per team repo (live Renovate)",
+      "description": "The fourth signal ticket 12 names: live Renovate PR state, per team -- same first-party GitHub-API pattern the CIO dashboard's 'Adoption velocity' panel already uses (issue 21), applied per app-team repo instead of just fleet. A team with zero rows here either has nothing stale right now or hasn't been scanned by Renovate yet (a brand-new repo) -- both are real states, not a broken panel.",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 21},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+      "targets": [
+        {
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "https://api.github.com/search/issues?q=org%3Apolicy-as-versioned-flux+is%3Apr+is%3Aopen+author%3Aapp%2Frenovate",
+          "url_options": {"method": "GET"},
+          "root_selector": "items",
+          "columns": [
+            {"selector": "repository_url", "text": "repo", "type": "string"},
+            {"selector": "number", "text": "PR", "type": "number"},
+            {"selector": "title", "text": "title", "type": "string"},
+            {"selector": "created_at", "text": "created_at", "type": "timestamp"}
+          ],
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "repo": "team repo"
+            }
+          }
+        }
+      ]
     }
   ]
 }
