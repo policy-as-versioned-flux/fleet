@@ -1,0 +1,138 @@
+{
+  "title": "Estate staleness (both kinds, one row per team)",
+  "uid": "estate-staleness",
+  "tags": ["policy-as-versioned-flux"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {"from": "now-6h", "to": "now"},
+  "description": "Ticket 12 (real-estate epic): a policy version is just another dependency -- this dashboard joins policy-version staleness and dependency-vulnerability staleness into one estate view, per team. The CIO dashboard (flux-policy-dashboard) stays one-question-shaped and is unchanged beyond ticket 01's additions.",
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "label": "Prometheus",
+        "query": "prometheus",
+        "current": {}
+      },
+      {
+        "name": "DS_INFINITY",
+        "type": "datasource",
+        "label": "Infinity",
+        "query": "yesoreyeram-infinity-datasource",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Policy version + vulnerability count, per team",
+      "description": "Joined on team: each team's pinned mycompany.com/policy-version label (kube_pod_labels, allowlisted per ticket 12) and its total trivy_image_vulnerabilities count (all severities) for the image it actually runs. ledger (policy 1.0.0, Log4Shell-era log4j) is the roster's deliberate worst case; api (policy 2.2.0, current Go deps) is the deliberate clean contrast.",
+      "type": "table",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {
+          "expr": "label_replace(kube_pod_labels{namespace=\"default\", label_app!=\"\"}, \"team\", \"$1\", \"label_app\", \"(.+)\")",
+          "legendFormat": "__auto",
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        },
+        {
+          "expr": "label_replace(sum by (image_repository) (trivy_image_vulnerabilities), \"team\", \"$1\", \"image_repository\", \"policy-as-versioned-flux/(.+)\")",
+          "legendFormat": "__auto",
+          "instant": true,
+          "format": "table",
+          "refId": "B"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "team": true,
+              "label_mycompany_com_policy_version": true,
+              "label_department": true,
+              "Value": true
+            },
+            "renameByName": {
+              "label_mycompany_com_policy_version": "policy_version",
+              "label_department": "department",
+              "Value": "vulnerabilities"
+            }
+          }
+        },
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "team",
+            "mode": "outer"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Update readiness: would each team pass policy 2.2.0 today? (ticket 10)",
+      "description": "readiness-collector's offline verdict, per team -- pass/fail counts against 2.2.0's policies with the version-scope matchCondition stripped (\"as if opted in\"). Never touches admission; this is a forward-looking question, not the live admission verdict.",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 9},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+      "targets": [
+        {
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "http://oscal-file-server.monitoring.svc.cluster.local/readiness.json",
+          "url_options": {"method": "GET"},
+          "root_selector": "teams",
+          "columns": [
+            {"selector": "pass", "text": "pass", "type": "number"},
+            {"selector": "fail", "text": "fail", "type": "number"},
+            {"selector": "ready", "text": "ready", "type": "string"}
+          ],
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Sunset horizon: policy 1.0.0 (ledger)",
+      "description": "ticket 09's sunset: field, fleet's own adoption decision -- a countdown, computed live, never a hardcoded snapshot. Negative means the date has arrived (a retirement PR proposal should exist -- ADR-0010: scheduled proposal, never scheduled application).",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 17},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {
+          "expr": "(1786752000 - time()) / 86400",
+          "legendFormat": "days until policy 1.0.0 sunsets (2026-08-15)",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0},
+              {"color": "red", "value": -0.0001}
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    }
+  ]
+}
