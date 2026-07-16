@@ -91,6 +91,7 @@
           "url_options": {"method": "GET"},
           "root_selector": "teams",
           "columns": [
+            {"selector": "team", "text": "team", "type": "string"},
             {"selector": "pass", "text": "pass", "type": "number"},
             {"selector": "fail", "text": "fail", "type": "number"},
             {"selector": "ready", "text": "ready", "type": "string"}
