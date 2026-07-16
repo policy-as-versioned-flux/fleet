@@ -5,6 +5,7 @@ resources:
   - helmrepository.yaml
   - kube-prometheus-stack-helmrelease.yaml
   - policy-reporter-helmrelease.yaml
+  - trivy-operator-helmrelease.yaml
 # Issue 15: the combined Flux-revision + PolicyReports dashboard, as a
 # ConfigMap labelled for kube-prometheus-stack's Grafana sidecar to
 # auto-discover -- same mechanism Policy Reporter's own dashboards use

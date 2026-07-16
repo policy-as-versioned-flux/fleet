@@ -15,3 +15,14 @@ metadata:
 spec:
   interval: 1h
   url: https://kyverno.github.io/policy-reporter
+---
+# Ticket 11 (real-estate): vulnerability staleness signal, same governed-
+# dependency posture as everything else here.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: aqua-trivy
+  namespace: monitoring
+spec:
+  interval: 1h
+  url: https://aquasecurity.github.io/helm-charts/
