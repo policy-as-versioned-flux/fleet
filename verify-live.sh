@@ -14,9 +14,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "== app1 (compliant, from Flux): admitted =="
-kubectl get pod app1 >/dev/null || { echo "FAIL: app1 not present -- run ./up.sh first"; exit 1; }
-echo "OK: app1 is Running"
+echo "== ledger (compliant, from Flux, policy 1.0.0): admitted =="
+kubectl get deployment ledger >/dev/null || { echo "FAIL: ledger not present -- run ./up.sh first"; exit 1; }
+kubectl wait --for=condition=available deployment/ledger --timeout=60s >/dev/null || { echo "FAIL: ledger deployment never became available"; exit 1; }
+echo "OK: ledger is Running"
 
 echo "== Deny gate: an unrecognised department value is refused =="
 if kubectl apply -f - >/dev/null 2>&1 <<'EOF'
