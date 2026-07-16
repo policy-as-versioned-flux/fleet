@@ -111,13 +111,14 @@ infrastructure/crossplane*/    issue 18: Crossplane v2 core + AWS provider-famil
                                 carry the same dependsOn once unblocked.
 verify-crossplane.sh           proves issue 18: CRDs Established, the ordering held, and the
                                 sample RDS CR sits unreconciled (no auth on the critical path)
-pr-gate-check.sh                issue 12: gitsign verify-tag + tag-resolves-to-commit +
-                                kyverno test + flux build --dry-run for every array entry in
-                                a bump PR. Runs identically in CI
-                                (.github/workflows/pr-gate.yml, on PRs touching clusters/**,
-                                required by a branch ruleset before merge) and locally
-                                (./pr-gate-check.sh <base-ref> <head-ref>) -- no real PR needed
-                                to exercise it, only the {tag, commit} pairs it reads
+.github/workflows/pr-gate.yml   issue 12, extracted per ticket 03 (real-estate): invokes the
+                                pinned policy-as-versioned-flux/pr-gate-action, digest-pinned --
+                                gitsign verify-tag + tag-resolves-to-commit + kyverno test +
+                                flux build --dry-run + rendered-version cross-check for every
+                                array entry in a bump PR, required by a branch ruleset before
+                                merge. The gate's own logic (and its self-check) now lives in
+                                that repo, not here -- the gate that verifies pins is itself
+                                pinned.
 clusters/cluster2/              issue 10: a second, independent cluster profile from the SAME
                                 fleet repo, >=2.0.0 only -- proves per-cluster narrowing.
                                 Workload-plane only, minimal on purpose (no monitoring/
@@ -151,7 +152,7 @@ infrastructure/c2p/              issue 21: a real, continuously-running (*/15 * 
 ./verify-monitoring.sh   # PolicyReport -> Prometheus claims against what's live
 ./verify-flux-dashboard.sh  # Flux-revision + PolicyReports dashboard claims against what's live
 ./verify-crossplane.sh   # Crossplane CRD install + ordering claims against what's live
-./pr-gate-check.sh HEAD~1 HEAD  # PR gate against any two refs -- no cluster, no real PR needed
+                          # PR gate: see policy-as-versioned-flux/pr-gate-action's own verify.sh
 ./up2.sh                 # second cluster: KiND -> Flux Operator -> Kyverno -> >=2.0.0 only
 ./verify-retirement.sh   # issue 10 claims against BOTH live clusters (needs up.sh AND up2.sh)
 ./down.sh                # tear down cluster1; ./up.sh again recreates cleanly
