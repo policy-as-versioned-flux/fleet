@@ -49,6 +49,14 @@ spec:
       resources:
         requests: {cpu: 50m, memory: 128Mi}
       adminPassword: admin
+      # issue 01 (real-estate): demo clusters need zero login to reach a
+      # dashboard -- anonymous Viewer access, not a credential to remember
+      # or type mid-walkthrough. Admin login (adminPassword above) still
+      # works for provisioning; this only removes the login *wall*.
+      "grafana.ini":
+        auth.anonymous:
+          enabled: true
+          org_role: Viewer
       # Issue 21: infinity is first-party-listed on grafana.com/plugins (not
       # a bespoke exporter) -- reads the OSCAL panel from the in-cluster
       # oscal-file-server (issue 21's CronJob output, no auth needed, see
