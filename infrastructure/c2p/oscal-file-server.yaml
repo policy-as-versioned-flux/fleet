@@ -5,6 +5,13 @@
 # no restart needed when the CronJob updates it) and serves it via nginx.
 # Same "tiny in-cluster receiver, no bespoke exporter service" idiom as
 # issue 16's notification receiver.
+#
+# Ticket 12 (real-estate): also serves the readiness-collector's
+# readiness-2.2.0 ConfigMap (mounted as a single file via subPath, so it
+# doesn't collide with the oscal ConfigMap's own directory mount at the
+# docroot root) -- same idiom, one more file, not a second component.
+# Name kept as oscal-file-server (not renamed) to avoid churning the CIO
+# dashboard's existing URL for no functional reason.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,6 +36,9 @@ spec:
           volumeMounts:
             - name: oscal
               mountPath: /usr/share/nginx/html
+            - name: readiness
+              mountPath: /usr/share/nginx/html/readiness.json
+              subPath: readiness.json
             - name: nginx-conf
               mountPath: /etc/nginx/conf.d
             - name: tmp
@@ -42,6 +52,10 @@ spec:
         - name: oscal
           configMap:
             name: oscal-assessment-results
+            optional: true
+        - name: readiness
+          configMap:
+            name: readiness-2.2.0
             optional: true
         - name: nginx-conf
           configMap:
