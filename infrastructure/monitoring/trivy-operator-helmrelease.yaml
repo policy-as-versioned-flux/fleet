@@ -30,6 +30,13 @@ spec:
     resources:
       requests: {cpu: 100m, memory: 100Mi}
       limits: {memory: 500Mi}
+    # KiND is a single node -- the chart default (10 concurrent scan jobs)
+    # schedules them all onto that one node, where they collide on Trivy's
+    # local vulnerability-DB cache lock ("cache may be in use by another
+    # process: timeout", confirmed live in the operator's own reconciler
+    # logs). Serialize scans instead.
+    operator:
+      scanJobsConcurrentLimit: 1
     trivy:
       # Ephemeral-demo posture, same rationale as Prometheus's empty
       # storageSpec (faithful-floor issue 14) -- KiND is free & reproducible,

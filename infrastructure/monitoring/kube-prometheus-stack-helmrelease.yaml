@@ -41,6 +41,17 @@ spec:
         # work fine if this ever needs to survive a Prometheus restart, but
         # nothing here depends on retained history across ./down.sh.
         storageSpec: {}
+    # Ticket 12 (real-estate): the estate dashboard needs to join each
+    # team's Prometheus signal (vulnerabilities, PolicyReport results) back
+    # to *which team* -- kube_pod_labels doesn't expose arbitrary labels by
+    # default, so mycompany.com/policy-version, app, and department are
+    # explicitly allowlisted here. Dynamic, not hand-maintained: any pod
+    # carrying these labels (every team's workload, by construction --
+    # ticket 07/08's k8s/deployment.yaml) is automatically joinable, no
+    # per-team dashboard edit needed when a new team is added.
+    kube-state-metrics:
+      metricLabelsAllowlist:
+        - "pods=[mycompany.com/policy-version,app,department]"
     grafana:
       # Sidecar dashboard auto-discovery (default-on in this chart) is what
       # lets Policy Reporter's own pre-built dashboards (ConfigMaps labelled
