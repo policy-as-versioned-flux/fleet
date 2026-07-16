@@ -20,7 +20,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: readiness-collector
-              image: ghcr.io/policy-as-versioned-flux/readiness-collector@sha256:b186b7082b378b1c30c58e9646369298eaeda7ef5f2761f5256e47f138470eb5 # v1.0.0
+              image: ghcr.io/policy-as-versioned-flux/readiness-collector@sha256:e25c7abfa6143df59f3bb16a755c4927aad3ac3781ddf5bf8d4ead1a95a4dbbe # v1.0.0
               env:
                 - name: HOME
                   value: /work
