@@ -18,5 +18,15 @@ configMapGenerator:
     options:
       labels:
         grafana_dashboard: "1"
+  # Ticket 12 (real-estate): second dashboard, same ConfigMap/sidecar
+  # mechanism -- the CIO dashboard above stays one-question-shaped and
+  # untouched beyond ticket 01's additions.
+  - name: estate-staleness-dashboard
+    namespace: monitoring
+    files:
+      - dashboards/estate-staleness-dashboard.json
+    options:
+      labels:
+        grafana_dashboard: "1"
 generatorOptions:
   disableNameSuffixHash: true

@@ -7,11 +7,12 @@
 # issue 16's notification receiver.
 #
 # Ticket 12 (real-estate): also serves the readiness-collector's
-# readiness-2.2.0 ConfigMap (mounted as a single file via subPath, so it
-# doesn't collide with the oscal ConfigMap's own directory mount at the
-# docroot root) -- same idiom, one more file, not a second component.
-# Name kept as oscal-file-server (not renamed) to avoid churning the CIO
-# dashboard's existing URL for no functional reason.
+# readiness-2.2.0 ConfigMap. Mounted as its own directory at /etc/readiness
+# (NOT nested via subPath under /usr/share/nginx/html -- that collided with
+# the oscal ConfigMap's own directory mount at the same root: "mount ...
+# not a directory", confirmed live) and exposed at /readiness.json via an
+# nginx alias instead. Name kept as oscal-file-server (not renamed) to
+# avoid churning the CIO dashboard's existing URL for no functional reason.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -37,8 +38,7 @@ spec:
             - name: oscal
               mountPath: /usr/share/nginx/html
             - name: readiness
-              mountPath: /usr/share/nginx/html/readiness.json
-              subPath: readiness.json
+              mountPath: /etc/readiness
             - name: nginx-conf
               mountPath: /etc/nginx/conf.d
             - name: tmp
@@ -76,6 +76,10 @@ data:
         root /usr/share/nginx/html;
         add_header Access-Control-Allow-Origin *;
         autoindex on;
+      }
+      location = /readiness.json {
+        alias /etc/readiness/readiness.json;
+        add_header Access-Control-Allow-Origin *;
       }
     }
 ---
