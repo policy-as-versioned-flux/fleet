@@ -70,7 +70,14 @@ clusters/cluster1/
                                 GitRepository + one Kustomization per policy, per version.
                                 Adding/removing an array element is the only change needed
                                 to install/retire a version.
-  apps.yaml                     the apps repo (app1/2/3, one per version), branch-tracked
+  apps.yaml                     ticket 07/08 (real-estate): five real team repos, each its own
+                                GitRepository+Kustomization pair, branch-tracked -- storefront
+                                (old Angular/npm, policy 2.2.0), ledger (Log4Shell-era log4j
+                                2.14, policy 1.0.0, the laggard), reports (moderately old Flask,
+                                policy 2.0.0), api (current Go deps, policy 2.2.0, the good
+                                citizen), datastore (Crossplane claims, team-requested not
+                                platform-planted, policy 2.2.0). Replaces the old apps monorepo
+                                (app1/2/3, three identical nginx pods) -- archived, not deleted.
 renovate.json                   issue 11: one customManager (git-refs datasource) bumps every
                                 {tag, commit} pin to the policy repo -- the only pin surface in
                                 this design, see the file's own description field for why
@@ -138,9 +145,11 @@ infrastructure/c2p/              issue 21: a real, continuously-running (*/15 * 
                                 to seconds-to-start. Writes OSCAL output to a ConfigMap, served
                                 over plain unauthenticated in-cluster HTTP by a tiny nginx pod
                                 (oscal-file-server) for Grafana's infinity datasource to read --
-                                avoids needing a Grafana ServiceAccount token/RBAC grant. Also
-                                carries permanent, version-labelled cloud exemplars so the job
-                                has real findings.
+                                avoids needing a Grafana ServiceAccount token/RBAC grant. Ticket
+                                08 (real-estate): the cloud exemplars that used to live here
+                                (cloud-exemplars.yaml) moved to the datastore team's own repo,
+                                team-requested claims instead of platform-planted -- the job
+                                still has real findings, now attributable to a team.
 ```
 
 ## Run it

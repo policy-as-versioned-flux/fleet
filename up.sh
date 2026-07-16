@@ -2,7 +2,8 @@
 # One documented command sequence: laptop -> KiND cluster with Flux Operator
 # (FluxInstance, ADR-0005), Kyverno engine (>=1.18, ADR-0003), three
 # coexisting policy versions + the orphan guard via one ResourceSet (issues
-# 08, 09), and three consumer apps, all reconciling live via Flux GitOps.
+# 08, 09), and five real team apps (ticket 07/08, real-estate epic), all
+# reconciling live via Flux GitOps, each on its own cadence.
 # Idempotent -- safe to re-run. Readiness is gated throughout by native
 # `kubectl wait` on Ready conditions, never a jsonpath polling loop.
 #
@@ -27,7 +28,7 @@ kubectl apply -f clusters/cluster1/bootstrap.yaml >/dev/null
 kubectl -n flux-system wait --for=condition=Ready gitrepository/fleet --timeout=2m
 kubectl -n flux-system wait --for=condition=Ready kustomization/kyverno --timeout=5m
 
-echo "== 5. Policy versions (ResourceSet: range over the {version,commit} array) + three consumer apps =="
+echo "== 5. Policy versions (ResourceSet: range over the {version,commit} array) + five team apps =="
 kubectl apply -f clusters/cluster1/policy-versions.yaml >/dev/null
 kubectl apply -f clusters/cluster1/apps.yaml >/dev/null
 kubectl -n flux-system wait --for=condition=Ready resourceset/policy-versions --timeout=1m
@@ -36,14 +37,16 @@ kubectl -n flux-system wait --for=condition=Ready \
   kustomization/policy-1.0.0-require-known-department-label \
   kustomization/policy-2.0.0-require-department-label \
   kustomization/policy-2.0.0-require-known-department-label \
-  kustomization/policy-2.1.1-require-department-label \
-  kustomization/policy-2.1.1-require-known-department-label \
-  kustomization/policy-2.1.1-require-owner-annotation \
+  kustomization/policy-2.2.0-require-department-label \
+  kustomization/policy-2.2.0-require-known-department-label \
+  kustomization/policy-2.2.0-require-owner-annotation \
   --timeout=3m
 kubectl wait --for=jsonpath='{.status.conditionStatus.ready}'=true validatingpolicy/orphan-guard --timeout=1m
-kubectl -n flux-system wait --for=condition=Ready kustomization/apps --timeout=2m
+kubectl -n flux-system wait --for=condition=Ready \
+  kustomization/storefront kustomization/ledger kustomization/reports \
+  kustomization/api kustomization/datastore --timeout=2m
 
-echo "== OK: KiND cluster '$CLUSTER' has Flux Operator + Kyverno + 3 coexisting policy versions + orphan guard + 3 apps healthy =="
+echo "== OK: KiND cluster '$CLUSTER' has Flux Operator + Kyverno + 3 coexisting policy versions + orphan guard + 5 team apps healthy =="
 kubectl -n kyverno get deploy
 kubectl get validatingpolicy
 kubectl get pods -l 'mycompany.com/policy-version' --show-labels

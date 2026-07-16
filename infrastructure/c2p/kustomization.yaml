@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
   - rbac.yaml
   - cronjob.yaml
-  - cloud-exemplars.yaml
   - oscal-file-server.yaml
 
 configMapGenerator:
