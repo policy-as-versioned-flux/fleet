@@ -131,13 +131,16 @@ verify-retirement.sh            proves issue 10 against BOTH live clusters at on
                                 guard refuses that version in the same reconcile
 infrastructure/c2p/              issue 21: a real, continuously-running (*/15 * * * *) C2P
                                 result2oscal CronJob against the live fleet's own PolicyReports
-                                (not the issue 20 spike's throwaway cluster). Builds C2P from
-                                source at run time (no custom image/registry needed), writes
-                                OSCAL output to a ConfigMap, served over plain unauthenticated
-                                in-cluster HTTP by a tiny nginx pod (oscal-file-server) for
-                                Grafana's infinity datasource to read -- avoids needing a
-                                Grafana ServiceAccount token/RBAC grant. Also carries permanent,
-                                version-labelled cloud exemplars so the job has real findings.
+                                (not the issue 20 spike's throwaway cluster). Ticket 04
+                                (real-estate): pins policy-as-versioned-flux/c2p-collector by
+                                digest -- c2pcli/kyverno-plugin/kubectl baked in at release
+                                time, run time down from ~4 minutes (cold git clone + go build)
+                                to seconds-to-start. Writes OSCAL output to a ConfigMap, served
+                                over plain unauthenticated in-cluster HTTP by a tiny nginx pod
+                                (oscal-file-server) for Grafana's infinity datasource to read --
+                                avoids needing a Grafana ServiceAccount token/RBAC grant. Also
+                                carries permanent, version-labelled cloud exemplars so the job
+                                has real findings.
 ```
 
 ## Run it

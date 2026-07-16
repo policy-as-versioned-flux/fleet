@@ -8,10 +8,6 @@ resources:
   - oscal-file-server.yaml
 
 configMapGenerator:
-  - name: c2p-run-script
-    namespace: monitoring
-    files:
-      - run.sh
   - name: c2p-component-definition
     namespace: monitoring
     files:

@@ -1,18 +1,13 @@
-# Issue 21 / ADR-0009: "collection is wired as a CronJob / Flux Kustomization
-# ... small glue we own." golang:1.24-alpine as the image (not a custom-built
-# image pushed to a registry -- C2P is built from source at run time, same
-# technique already proven in spikes/c2p-real-job/run.sh) keeps this to zero
-# new CI/registry infrastructure, at the cost of a slower run (git clone + go
-# build each time) -- an acceptable tradeoff for a 15-minute-interval job.
+# Issue 21 / ADR-0009; extracted per ticket 03-real-estate: this CronJob now
+# pins policy-as-versioned-flux/c2p-collector by digest (own repo, own
+# built image -- c2pcli/kyverno-plugin/kubectl baked in at release time,
+# not built from source on every 15-minute run). Run time drops from
+# ~4 minutes (git clone + go build cold) to seconds-to-start.
 #
-# Single container, root: `apk add` needs it, and a separate non-root
-# initContainer wouldn't help -- each container in a pod has its own
-# writable filesystem layer, so packages an initContainer installs don't
-# persist to the main container even from the same base image. This is a
-# short-lived batch job touching only its own ephemeral container
-# filesystem (no host access, no privileged mode) -- not the same risk
-# profile as a long-running service, but still capped: no
-# privilege-escalation, no added capabilities.
+# Single container, root: the image's own binaries need no package install
+# at run time any more, but the job still only touches its own ephemeral
+# container filesystem (no host access, no privileged mode) -- capped:
+# no privilege-escalation, no added capabilities.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -30,17 +25,17 @@ spec:
           restartPolicy: Never
           containers:
             - name: c2p-collector
-              image: golang:1.24-alpine
-              command:
-                - /bin/sh
-                - -c
-                - apk add --no-cache git jq curl >/dev/null && /bin/sh /scripts/run.sh
+              image: ghcr.io/policy-as-versioned-flux/c2p-collector@sha256:a22fa18438dba108196090fe62d67717eb01f5fec11c112599833f0332900d2a # v1.0.0
               env:
                 - name: HOME
                   value: /work
+                - name: WORK
+                  value: /work
+                - name: COMPONENT_DEFINITION
+                  value: /config/component-definition.json
+                - name: NAMESPACE
+                  value: monitoring
               volumeMounts:
-                - name: script
-                  mountPath: /scripts
                 - name: config
                   mountPath: /config
                 - name: work
@@ -49,18 +44,12 @@ spec:
                 allowPrivilegeEscalation: false
                 capabilities: {drop: ["ALL"]}
               resources:
-                # `go build`-ing C2P's dependency tree from cold (no module
-                # cache persists between runs -- work is an emptyDir) needs
-                # real headroom. 512Mi OOM-killed in testing; confirmed live
-                # that 1536Mi completes the full run (build + collect +
-                # publish) in ~4 minutes.
-                requests: {cpu: 250m, memory: 512Mi}
-                limits: {memory: 1536Mi}
+                # No more cold `go build` -- the image already carries the
+                # binaries. Headroom now only needs to cover result2oscal
+                # itself against this cluster's real PolicyReport volume.
+                requests: {cpu: 100m, memory: 128Mi}
+                limits: {memory: 256Mi}
           volumes:
-            - name: script
-              configMap:
-                name: c2p-run-script
-                defaultMode: 0755
             - name: config
               configMap:
                 name: c2p-component-definition
