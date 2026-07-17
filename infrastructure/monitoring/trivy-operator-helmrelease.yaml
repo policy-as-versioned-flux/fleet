@@ -46,6 +46,16 @@ spec:
       # for us -- setting trivy.mode by hand without serverURL fails the
       # Helm template outright ("trivy.serverURL is required"), found live.
       builtInTrivyServer: true
+      # The actual root cause of ledger's scan never completing: its
+      # Java-specific vulnerability DB (trivy-java-db, downloaded
+      # client-side even in ClientServer mode -- not centralized by
+      # builtInTrivyServer) is ~892MB, and at this cluster's observed
+      # download speed (~2MiB/s) needs 7+ minutes just to fetch, before
+      # jar analysis even starts. The chart default scanJobTimeout (5m)
+      # was killing the job mid-download every single time -- confirmed
+      # live by reading the scan pod's own progress log. Every other app
+      # here has no Java dependency, so no other scan ever hit this.
+      scanJobTimeout: 15m
     trivy:
       # Ephemeral-demo posture, same rationale as Prometheus's empty
       # storageSpec (faithful-floor issue 14) -- KiND is free & reproducible,
