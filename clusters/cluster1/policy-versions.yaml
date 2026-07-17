@@ -120,6 +120,23 @@ spec:
               plane: cloud
             - name: require-rds-multi-az
               plane: cloud
+        # THROWAWAY, ticket 09 real-retirement proof: an adversarial audit
+        # found "merging retires the version" was only ever simulated
+        # (PR#31 closed unmerged) -- never actually tested against a real
+        # merge, because clusters/cluster1/policy-versions.yaml wasn't
+        # Flux-reconciled at the time (fixed just above, this same epic
+        # follow-up). This element will be removed by a second real merged
+        # PR to prove Flux retires it with zero manual kubectl steps.
+        - version: "2.1.1"
+          tag: "2.1.1"
+          commit: "95579dd567b2c0e490ce56aeb0504290085651f6"
+          policies:
+            - name: require-department-label
+              plane: workload
+            - name: require-known-department-label
+              plane: workload
+            - name: require-owner-annotation
+              plane: workload
   resourcesTemplate: |
     << range $v := inputs.versions >>
     ---
