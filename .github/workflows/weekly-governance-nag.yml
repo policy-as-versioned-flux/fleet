@@ -7,6 +7,13 @@ name: weekly governance nag
 # awaiting-change-pr (a decision was recorded, a PR is expected) that's
 # sat that way a while -- needs-discussion is deliberately excluded, no
 # PR is expected there yet.
+#
+# Skips issues that already have an open PR referencing them (checked via
+# the issue's own timeline cross-reference events, the same signal
+# GitHub's UI uses for "Development: linked pull requests") -- a human
+# has already acted, just hasn't merged yet, so nagging would be noise.
+# An audit found this "skip" behavior was claimed done but never actually
+# implemented; this is the real fix, not just a doc correction.
 
 on:
   schedule:
@@ -20,16 +27,31 @@ jobs:
   nag:
     runs-on: ubuntu-latest
     steps:
-      - name: Comment on checked-but-unactioned issues
+      - name: Comment on checked-but-unactioned issues, skipping already-actioned ones
         uses: actions/github-script@v7
         with:
           script: |
+            async function hasOpenLinkedPR(issue_number) {
+              const timeline = await github.paginate(github.rest.issues.listEventsForTimeline, {
+                owner: context.repo.owner, repo: context.repo.repo, issue_number,
+              });
+              return timeline.some(ev =>
+                ev.event === 'cross-referenced' &&
+                ev.source?.issue?.pull_request &&
+                ev.source.issue.state === 'open'
+              );
+            }
+
             for (const label of ['awaiting-defence-pr', 'awaiting-change-pr']) {
               const { data: issues } = await github.rest.issues.listForRepo({
                 owner: context.repo.owner, repo: context.repo.repo,
                 state: 'open', labels: label,
               });
               for (const issue of issues) {
+                if (await hasOpenLinkedPR(issue.number)) {
+                  console.log(`Skipping #${issue.number}: an open PR already references it -- already actioned, just not merged yet.`);
+                  continue;
+                }
                 await github.rest.issues.createComment({
                   owner: context.repo.owner, repo: context.repo.repo,
                   issue_number: issue.number,
