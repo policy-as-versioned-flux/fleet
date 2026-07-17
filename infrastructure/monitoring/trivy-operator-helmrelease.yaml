@@ -31,16 +31,27 @@ spec:
       requests: {cpu: 100m, memory: 100Mi}
       limits: {memory: 500Mi}
     # KiND is a single node -- the chart default (10 concurrent scan jobs)
-    # schedules them all onto that one node, where they collide on Trivy's
-    # local vulnerability-DB cache lock ("cache may be in use by another
-    # process: timeout", confirmed live in the operator's own reconciler
-    # logs). Serialize scans instead.
+    # schedules them all onto that one node. Serializing to 1 alone did NOT
+    # resolve it: "cache may be in use by another process: timeout" kept
+    # recurring even one-at-a-time, confirmed live across many separate
+    # scan attempts over 24h+. Root cause: Standalone mode has every scan
+    # job independently download + lock its own vulnerability-DB copy in
+    # its own emptyDir -- concurrency-limiting the *jobs* doesn't fix a
+    # *DB-download/lock* race inherent to each job's own trivy CLI
+    # invocation. The structural fix is ClientServer mode (below), not
+    # more serialization.
     operator:
       scanJobsConcurrentLimit: 1
     trivy:
+      # ClientServer mode: one persistent trivy-server holds the DB once;
+      # scan jobs are thin clients with no DB of their own to download or
+      # lock. Eliminates the whole class of per-job cache-lock contention
+      # Standalone mode hit, rather than further mitigating it.
+      mode: ClientServer
       # Ephemeral-demo posture, same rationale as Prometheus's empty
       # storageSpec (faithful-floor issue 14) -- KiND is free & reproducible,
-      # nothing here needs to survive a ./down.sh.
+      # nothing here needs to survive a ./down.sh. Applies to the
+      # trivy-server's own DB storage in ClientServer mode.
       storageClassEnabled: false
       # Chart default (500Mi limit) OOMKilled scanning ledger's shaded jar
       # (DB download + Java jar analysis together) -- confirmed live via
