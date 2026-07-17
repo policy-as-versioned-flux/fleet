@@ -183,3 +183,32 @@ spec:
   timeout: 3m0s
   dependsOn:
     - name: monitoring
+---
+# Real-estate epic follow-up (tickets 07/09 adversarial audit finding):
+# policy-versions.yaml (the ResourceSet) and apps.yaml were previously
+# one-shot `kubectl apply`'d by up.sh only -- never reconciled by Flux, so
+# a merged git PR didn't actually change cluster state without a manual
+# re-apply, and nothing corrected out-of-band drift (found live: the
+# ResourceSet's inputs had been hand-edited outside git, causing a real
+# admission-control failure). This Kustomization closes that gap: the
+# same git-drives-cluster guarantee every other resource in this cluster
+# already has. clusters/cluster1/kustomization.yaml explicitly lists only
+# policy-versions.yaml + apps.yaml -- bootstrap.yaml (this file) itself
+# stays a one-shot kubectl apply, the genuine chicken-and-egg exception
+# already documented in the header comment above.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cluster-state
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./clusters/cluster1
+  prune: true
+  wait: true
+  timeout: 3m0s
+  dependsOn:
+    - name: kyverno
