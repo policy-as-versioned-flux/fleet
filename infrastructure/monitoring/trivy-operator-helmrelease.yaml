@@ -42,12 +42,11 @@ spec:
     # more serialization.
     operator:
       scanJobsConcurrentLimit: 1
+      # builtInTrivyServer sets trivy.mode=ClientServer and trivy.serverURL
+      # for us -- setting trivy.mode by hand without serverURL fails the
+      # Helm template outright ("trivy.serverURL is required"), found live.
+      builtInTrivyServer: true
     trivy:
-      # ClientServer mode: one persistent trivy-server holds the DB once;
-      # scan jobs are thin clients with no DB of their own to download or
-      # lock. Eliminates the whole class of per-job cache-lock contention
-      # Standalone mode hit, rather than further mitigating it.
-      mode: ClientServer
       # Ephemeral-demo posture, same rationale as Prometheus's empty
       # storageSpec (faithful-floor issue 14) -- KiND is free & reproducible,
       # nothing here needs to survive a ./down.sh. Applies to the
