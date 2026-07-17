@@ -29,8 +29,11 @@ kubectl -n flux-system wait --for=condition=Ready gitrepository/fleet --timeout=
 kubectl -n flux-system wait --for=condition=Ready kustomization/kyverno --timeout=5m
 
 echo "== 5. Policy versions (ResourceSet: range over the {version,commit} array) + five team apps =="
-kubectl apply -f clusters/cluster1/policy-versions.yaml >/dev/null
-kubectl apply -f clusters/cluster1/apps.yaml >/dev/null
+# Ticket 07/09 follow-up: policy-versions.yaml/apps.yaml are now Flux-managed
+# (the "cluster-state" Kustomization in bootstrap.yaml), not kubectl-apply'd
+# here directly -- this closes the out-of-band-drift gap an adversarial audit
+# found (a hand-edited live ResourceSet that diverged from git undetected).
+kubectl -n flux-system wait --for=condition=Ready kustomization/cluster-state --timeout=2m
 kubectl -n flux-system wait --for=condition=Ready resourceset/policy-versions --timeout=1m
 kubectl -n flux-system wait --for=condition=Ready \
   kustomization/policy-1.0.0-require-department-label \
@@ -40,6 +43,8 @@ kubectl -n flux-system wait --for=condition=Ready \
   kustomization/policy-2.2.0-require-department-label \
   kustomization/policy-2.2.0-require-known-department-label \
   kustomization/policy-2.2.0-require-owner-annotation \
+  kustomization/policy-2.2.0-require-s3-bucket-encryption \
+  kustomization/policy-2.2.0-require-rds-multi-az \
   --timeout=3m
 kubectl wait --for=jsonpath='{.status.conditionStatus.ready}'=true validatingpolicy/orphan-guard --timeout=1m
 kubectl -n flux-system wait --for=condition=Ready \

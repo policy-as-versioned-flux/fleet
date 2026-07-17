@@ -1,0 +1,15 @@
+# Real-estate epic follow-up (ticket 07/09 adversarial audit finding):
+# policy-versions.yaml and apps.yaml were previously one-shot
+# `kubectl apply`'d by up.sh only -- never reconciled by Flux, so a merged
+# git PR didn't actually change cluster state without a manual re-apply,
+# and nothing corrected out-of-band drift (found live: the ResourceSet's
+# inputs had been hand-edited outside git). Explicitly listing resources
+# here (rather than letting kustomize-controller auto-generate a
+# kustomization.yaml from every file in the directory) deliberately
+# excludes bootstrap.yaml -- that file stays a one-shot kubectl apply, the
+# genuine chicken-and-egg exception documented in its own header comment.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - policy-versions.yaml
+  - apps.yaml
