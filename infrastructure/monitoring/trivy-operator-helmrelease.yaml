@@ -55,8 +55,18 @@ spec:
       # was killing the job mid-download every single time -- confirmed
       # live by reading the scan pod's own progress log. Every other app
       # here has no Java dependency, so no other scan ever hit this.
-      scanJobTimeout: 15m
+      scanJobTimeout: 30m
     trivy:
+      # The scanJobTimeout above (operator-level: how long the operator waits
+      # on the k8s Job) is a DIFFERENT deadline from this one. Confirmed live
+      # by reading the operator's own reconciler log for the actual failure:
+      # the 892MB Java DB download alone took 8m37s, and trivy's own internal
+      # `--timeout` flag (this value, wraps DB-download+analysis together)
+      # still defaulted to the chart's 5m0s -- so trivy killed itself
+      # ("context deadline exceeded" mid-layer-analysis) well before the
+      # operator's own 15m/30m job deadline was ever reached. Both timeouts
+      # must cover the same slow download; raising only one is not enough.
+      timeout: "30m0s"
       # Ephemeral-demo posture, same rationale as Prometheus's empty
       # storageSpec (faithful-floor issue 14) -- KiND is free & reproducible,
       # nothing here needs to survive a ./down.sh. Applies to the
