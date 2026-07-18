@@ -184,15 +184,15 @@ spec:
       name: orphan-guard
       annotations:
         policies.kyverno.io/title: Orphan guard
-        policies.kyverno.io/subject: Pod
+        policies.kyverno.io/subject: Pod, BucketServerSideEncryptionConfiguration, Instance
         policies.kyverno.io/description: >-
-          Deny-at-admission catch-all: every Pod outside the cluster-system
-          namespaces must carry a mycompany.com/policy-version label whose
-          value is one of the versions currently installed on this cluster.
-          A missing label is a violation; an unknown/retired one is a
-          violation. The allow-list is templated from the same
-          ResourceSet input that installs the versions (this file), so it
-          cannot drift from the installed set.
+          Deny-at-admission catch-all: every Pod or cloud-plane Crossplane CR
+          (issue 19) outside the cluster-system namespaces must carry a
+          mycompany.com/policy-version label whose value is one of the
+          versions currently installed on this cluster. A missing label is a
+          violation; an unknown/retired one is a violation. The allow-list is
+          templated from the same ResourceSet input that installs the
+          versions (this file), so it cannot drift from the installed set.
     spec:
       validationActions:
         - Deny
@@ -202,6 +202,21 @@ spec:
             apiVersions: ["v1"]
             operations: ["CREATE", "UPDATE"]
             resources: ["pods"]
+          # Issue 19 follow-up (wave-1 audit of the faithful-floor epic, 2026-07-18): the two
+          # cloud-plane policies (issue 17) use the identical policy-version opt-in label as every
+          # workload policy, so per this guard's own stated purpose above, it must cover their
+          # resource types too -- a Crossplane CR with no label at all was structurally invisible
+          # to this rule (Pods-only), silently admitting with no enforcement whatsoever, unlike an
+          # unlabeled Pod. Scoped to exactly the two Crossplane types the cloud plane targets, same
+          # apiGroups/resources as their own policies (pavf-policy/cloud/*/policy.yaml).
+          - apiGroups: ["s3.aws.m.upbound.io"]
+            apiVersions: ["v1beta1"]
+            operations: ["CREATE", "UPDATE"]
+            resources: ["bucketserversideencryptionconfigurations"]
+          - apiGroups: ["rds.aws.m.upbound.io"]
+            apiVersions: ["v1beta1"]
+            operations: ["CREATE", "UPDATE"]
+            resources: ["instances"]
         namespaceSelector:
           matchExpressions:
             - key: kubernetes.io/metadata.name
@@ -231,4 +246,4 @@ spec:
             has(object.metadata.labels) &&
             'mycompany.com/policy-version' in object.metadata.labels &&
             object.metadata.labels['mycompany.com/policy-version'] in [<< range $i, $v := inputs.versions >><< if $i >>, << end >>'<< $v.version >>'<< end >>]
-          message: "Pods must carry a mycompany.com/policy-version label matching a currently-installed version."
+          message: "This resource must carry a mycompany.com/policy-version label matching a currently-installed version."
