@@ -24,13 +24,23 @@ EOF
 echo "OK: all 9 present, no name collisions"
 
 echo "== every per-version Kustomization dependsOn kyverno and waits =="
-for ks in $(kubectl -n flux-system get kustomization -l "fluxcd.controlplane.io/name=policy-versions" -o name); do
+# wave-2 audit (2026-07-18): this selector was wrong (`fluxcd.controlplane.io/name`, a label that
+# doesn't exist on these objects) and silently matched zero Kustomizations -- the loop body never
+# ran, so this check vacuously printed OK regardless of live state. The real label the ResourceSet
+# stamps on everything it generates is `resourceset.fluxcd.controlplane.io/name`.
+matched=0
+for ks in $(kubectl -n flux-system get kustomization -l "resourceset.fluxcd.controlplane.io/name=policy-versions" -o name); do
+  matched=$((matched + 1))
   deps=$(kubectl -n flux-system get "$ks" -o jsonpath='{.spec.dependsOn[*].name}')
   wait=$(kubectl -n flux-system get "$ks" -o jsonpath='{.spec.wait}')
-  [ "$deps" = "kyverno" ] || { echo "FAIL: $ks dependsOn '$deps', expected 'kyverno'"; exit 1; }
+  # issue 19: cloud-plane Kustomizations dependsOn kyverno AND crossplane-providers (CRDs-Established
+  # gate); workload-plane ones dependsOn kyverno only. Both are correct -- assert kyverno is present,
+  # not that it's the sole entry.
+  case " $deps " in *" kyverno "*) ;; *) echo "FAIL: $ks dependsOn '$deps', expected to include 'kyverno'"; exit 1 ;; esac
   [ "$wait" = "true" ] || { echo "FAIL: $ks wait=$wait, expected true"; exit 1; }
 done
-echo "OK: every generated Kustomization dependsOn kyverno, wait: true"
+[ "$matched" -gt 0 ] || { echo "FAIL: selector matched zero Kustomizations -- label wrong, or nothing installed"; exit 1; }
+echo "OK: every generated Kustomization ($matched) dependsOn kyverno, wait: true"
 
 echo "== each version judges only its own opted-in workloads: same missing-department shape, different verdict per version =="
 kubectl apply -f - >/dev/null <<'EOF'
