@@ -4,8 +4,10 @@
 # coexisting policy versions + the orphan guard via one ResourceSet (issues
 # 08, 09), and five real team apps (ticket 07/08, real-estate epic), all
 # reconciling live via Flux GitOps, each on its own cadence.
-# Idempotent -- safe to re-run. Readiness is gated throughout by native
-# `kubectl wait` on Ready conditions, never a jsonpath polling loop.
+# Idempotent -- safe to re-run. Readiness is gated almost entirely by native
+# `kubectl wait` on Ready conditions -- one jsonpath wait remains (orphan-guard's
+# own conditionStatus.ready, which has no Ready condition to wait on), not the
+# polling loop the 2022 checker used.
 #
 # Prereqs: docker, kind, kubectl, helm. ~3-5 min from cold (varies with image pull speed).
 set -euo pipefail
