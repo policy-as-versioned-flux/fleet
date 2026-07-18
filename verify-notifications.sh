@@ -19,7 +19,11 @@ kubectl wait --for=condition=Ready kustomization/notifications -n flux-system --
 echo "OK"
 
 echo "== revision-echo has a real delivered event for a currently-installed policy source =="
-logs=$(kubectl logs deploy/revision-echo -n flux-system --tail=-1 2>/dev/null)
+# wave-1 audit (faithful-floor epic, 2026-07-18): the receiver pod restarting resets its log
+# buffer, silently losing older delivered events even though nothing about the claim changed --
+# `--previous` recovers the prior container's logs across exactly one restart. Concatenating both
+# is the durable check the comment above already claims this script is.
+logs=$(kubectl logs deploy/revision-echo -n flux-system --tail=-1 2>/dev/null; kubectl logs deploy/revision-echo -n flux-system --previous --tail=-1 2>/dev/null || true)
 for src in policy-1.0.0 policy-2.0.0 policy-2.2.0; do
   if grep -q "\"name\": \"$src\"" <<<"$logs" && grep -q '"involvedObject"' <<<"$logs"; then
     rev=$(grep -A15 "\"name\": \"$src\"" <<<"$logs" | grep -o '"revision": "[^"]*"' | tail -1 || true)

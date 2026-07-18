@@ -100,8 +100,10 @@ infrastructure/notifications/  issue 16, communicable's push half: Provider + Al
                                 at an in-cluster echo receiver (receiver.yaml) since this repo
                                 has no real chat-webhook credential -- a real deployment swaps
                                 provider.yaml's address for a real Slack/Teams/etc webhook.
-verify-notifications.sh        proves issue 16: forcing a policy source reconcile makes its
-                                revision arrive at the receiver within one reconcile
+verify-notifications.sh        proves issue 16: the receiver already holds a real delivered
+                                event for a currently-installed policy source's own revision --
+                                proven live the moment that source last genuinely changed, not by
+                                forcing a fresh reconcile of already-current, immutable content
 verify-monitoring.sh           proves issue 14: PolicyReport metrics for every installed
                                 version reach Prometheus; a non-compliant Audit workload
                                 shows failing there without being evicted
