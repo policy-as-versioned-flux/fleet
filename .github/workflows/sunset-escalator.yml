@@ -1,0 +1,42 @@
+name: sunset escalator
+
+# Ticket 09 follow-up (real-estate epic, wave-10 skeptic finding): sunset-escalator.sh's
+# logic was real and demonstrated by hand (fleet#30/#31), but nothing in the estate ever
+# invoked it unattended -- ADR-0010's "on the date itself, a machine opens a retirement
+# PR" was aspirational until this workflow existed. Runs daily; the script's own dedup
+# logic (checks for an already-open PR/issue before creating another) makes a missed or
+# re-run day harmless. Runs against this repo directly (FLEET_REPO defaults to
+# github.repository) so the default GITHUB_TOKEN's same-repo permissions are enough --
+# no cross-repo PAT/secret required.
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # daily 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no PR/issue writes)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  escalate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch sunset-escalator.sh from governance-agent
+        uses: actions/checkout@v4
+        with:
+          repository: policy-as-versioned-flux/governance-agent
+          path: governance-agent
+
+      - name: Run sunset escalator against this repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FLEET_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: bash governance-agent/sunset-escalator.sh
