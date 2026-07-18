@@ -25,7 +25,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: c2p-collector
-              image: ghcr.io/policy-as-versioned-flux/c2p-collector@sha256:a22fa18438dba108196090fe62d67717eb01f5fec11c112599833f0332900d2a # v1.0.0
+              image: ghcr.io/policy-as-versioned-flux/c2p-collector@sha256:22fb2782f4812d0ff81b476df8a763eeb9c02e8aa57b49f8402037b2dda33ece # v1.0.1
               env:
                 - name: HOME
                   value: /work
