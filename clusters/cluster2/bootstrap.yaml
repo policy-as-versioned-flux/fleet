@@ -30,3 +30,25 @@ spec:
   prune: true
   wait: true
   timeout: 3m0s
+---
+# Wave-1 audit (2026-07-18) follow-up to ticket 09/real-estate ticket 09's cluster1 fix (fleet#55):
+# policy-versions.yaml here was the same one-shot `kubectl apply`'d-by-up2.sh-only file cluster1's
+# was -- never reconciled by Flux, so a merged git PR wouldn't actually retire/install anything on
+# this cluster without a manual re-apply. Same fix, same shape: this Kustomization gives cluster2
+# the identical continuous-reconciliation guarantee cluster1 already has.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cluster-state
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: fleet
+  path: ./clusters/cluster2
+  prune: true
+  wait: true
+  timeout: 3m0s
+  dependsOn:
+    - name: kyverno

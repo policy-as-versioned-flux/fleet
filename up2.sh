@@ -23,8 +23,8 @@ kubectl apply -f clusters/cluster2/bootstrap.yaml >/dev/null
 kubectl -n flux-system wait --for=condition=Ready gitrepository/fleet --timeout=2m
 kubectl -n flux-system wait --for=condition=Ready kustomization/kyverno --timeout=5m
 
-echo "== 5. Policy versions (>=2.0.0 only) =="
-kubectl apply -f clusters/cluster2/policy-versions.yaml >/dev/null
+echo "== 5. Policy versions (>=2.0.0 only) -- via Flux's own continuous reconciliation, not a one-shot apply =="
+kubectl -n flux-system wait --for=condition=Ready kustomization/cluster-state --timeout=2m
 kubectl -n flux-system wait --for=condition=Ready resourceset/policy-versions --timeout=1m
 kubectl -n flux-system wait --for=condition=Ready \
   kustomization/policy-2.0.0-require-department-label \

@@ -1,0 +1,8 @@
+# Wave-1 audit (2026-07-18): same fix and same rationale as cluster1's kustomization.yaml --
+# explicitly listing resources (rather than letting kustomize-controller auto-generate one from
+# every file in the directory) deliberately excludes bootstrap.yaml, which stays a one-shot
+# kubectl apply, the genuine chicken-and-egg exception documented in its own header comment.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - policy-versions.yaml
