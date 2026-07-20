@@ -50,10 +50,17 @@ jobs:
           repository: policy-as-versioned-flux/governance-agent
           path: governance-agent
 
-      - name: Wire the token into git so the script's clone/push authenticates
+      - name: Wire the token + a bot identity into git for the script's clone/commit/push
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth setup-git
+        run: |
+          gh auth setup-git
+          # The runner has no git identity, and the script commits a fresh clone -- without
+          # this, `git commit` fails with "empty ident name" before the push/PR steps are even
+          # reached (found the hard way by a real forced-override run, 2026-07-20). Use the
+          # standard github-actions[bot] identity.
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Run sunset escalator against this repo
         env:
