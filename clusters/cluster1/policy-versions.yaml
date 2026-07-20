@@ -90,8 +90,8 @@ spec:
         # it a real sunset horizon is the honest version of "we know,
         # we're on it" rather than leaving it open-ended forever.
         - version: "1.0.0"
-          tag: "1.0.3"
-          commit: "66730c2415791135ef90b43cf9868e7a26043d08"
+          tag: "2.2.1"
+          commit: "89c9825af02f914806f13773856abce77cc36f66"
           sunset: "2026-08-15"
           policies:
             - name: require-department-label
@@ -99,16 +99,16 @@ spec:
             - name: require-known-department-label
               plane: workload
         - version: "2.0.0"
-          tag: "2.0.3"
-          commit: "1c2a3728aa885d07d440d2ac5da981adbb40732c"
+          tag: "2.2.1"
+          commit: "89c9825af02f914806f13773856abce77cc36f66"
           policies:
             - name: require-department-label
               plane: workload
             - name: require-known-department-label
               plane: workload
         - version: "2.2.0"
-          tag: "2.2.0"
-          commit: "6ad22ca85a444b289493725b178666f2156c8b32"
+          tag: "2.2.1"
+          commit: "89c9825af02f914806f13773856abce77cc36f66"
           policies:
             - name: require-department-label
               plane: workload
