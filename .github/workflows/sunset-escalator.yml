@@ -6,8 +6,20 @@ name: sunset escalator
 # PR" was aspirational until this workflow existed. Runs daily; the script's own dedup
 # logic (checks for an already-open PR/issue before creating another) makes a missed or
 # re-run day harmless. Runs against this repo directly (FLEET_REPO defaults to
-# github.repository) so the default GITHUB_TOKEN's same-repo permissions are enough --
-# no cross-repo PAT/secret required.
+# github.repository) so the default GITHUB_TOKEN's same-repo permissions are enough
+# for the issue-escalation path.
+#
+# Wave-5 skeptic finding: the retirement-PR path (script's `git push` + `gh pr create`)
+# needs two things the issue path doesn't, and neither was wired up originally:
+#   1. git push credentials -- the script does a fresh `git clone` to a tmp dir, which
+#      bypasses actions/checkout's credential helper; `gh auth setup-git` below wires the
+#      GITHUB_TOKEN into git for github.com so the push authenticates.
+#   2. permission for Actions to CREATE a PR -- gated by the repo/org setting "Allow
+#      GitHub Actions to create and approve pull requests" (REST: actions/permissions/
+#      workflow -> can_approve_pull_request_reviews). The `permissions:` block below is
+#      necessary but not sufficient; that org toggle is the remaining manual step (an
+#      admin setting change, or swap GH_TOKEN for a fine-grained PAT secret). See ticket
+#      09's follow-up for why that's left as an honestly-recorded operator decision.
 
 on:
   schedule:
@@ -18,6 +30,10 @@ on:
         description: "Dry run (no PR/issue writes)"
         type: boolean
         default: false
+      sunset_override:
+        description: "Override today's date (YYYY-MM-DD) to exercise the retirement-PR path; empty = real date"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -34,9 +50,15 @@ jobs:
           repository: policy-as-versioned-flux/governance-agent
           path: governance-agent
 
+      - name: Wire the token into git so the script's clone/push authenticates
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
+
       - name: Run sunset escalator against this repo
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FLEET_REPO: ${{ github.repository }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          SUNSET_TODAY_OVERRIDE: ${{ inputs.sunset_override || '' }}
         run: bash governance-agent/sunset-escalator.sh
