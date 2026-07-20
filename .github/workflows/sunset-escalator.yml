@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fetch sunset-escalator.sh from governance-agent
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.4.0
         with:
           repository: policy-as-versioned-flux/governance-agent
           path: governance-agent
