@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Comment on checked-but-unactioned issues, skipping already-actioned ones
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             async function hasOpenLinkedPR(issue_number) {
